@@ -1,41 +1,88 @@
 #!/usr/bin/env bash
 
-OS_CHECK=$(uname)
+set -e
 
+OS_CHECK=$(uname)
 BUILD_NAME="cube_thingy"
 
-make clean
+# A function to run the standard build process.
+run_build() {
+  echo "-----------------------------------"
+  echo "  Starting build..."
+  echo "-----------------------------------"
 
-if [ "$OS_CHECK" == "Linux" ]
-then
-  if [ "$(uname -m)" == "aarch64" ]
+  # Conditional temp fixes for Linux on ARM architecture.
+  if [ "$OS_CHECK" == "Linux" ]
   then
-    # temp fixes for backend.c
-    sed -i 's/dest = dest/dest = (unsigned int *)dest/' backend.c
-    sed -i 's/native = get_native/native = (unsigned int*)get_native/' backend.c
+    if [ "$(uname -m)" == "aarch64" ]
+    then
+      # temp fixes for backend.c
+      sed -i 's/dest = dest/dest = (unsigned int *)dest/' backend.c
+      sed -i 's/native = get_native/native = (unsigned int*)get_native/' backend.c
+    fi
   fi
-fi
 
-if [ "$OS_CHECK" == "Darwin" ]
-then
+  # Use parallel make jobs based on the operating system.
+  if [ "$OS_CHECK" == "Darwin" ]
+  then
+    echo ""
+    echo "-------------------------------"
+    echo "   macOS build takes forever"
+    echo "-------------------------------"
+    echo ""
+    # Use sysctl to get the number of CPU cores on macOS.
+    make -j$(sysctl -n hw.ncpu)
+  else
+    # Use nproc to get the number of CPU cores on Linux.
+    make -j$(nproc)
+  fi
+
+  # Check if the build was successful.
+  if [ ! -f $BUILD_NAME ]
+  then
+    echo "$BUILD_NAME build failed?"
+    exit 1
+  fi
+
   echo ""
-  echo "-------------------------------"
-  echo "   macOS build takes forever"
-  echo "-------------------------------"
+  echo "-----------------------------------"
+  echo "$BUILD_NAME built successfully"
+  echo "-----------------------------------"
+}
+
+# A function to run the clean command.
+run_clean() {
+  make clean
+}
+
+# A function to display the help message.
+show_help() {
+  echo "Usage: ./build.sh [option]"
   echo ""
-  make -j$(sysctl -n hw.ncpu)
-else
-  make -j$(nproc)
-fi
+  echo "Options:"
+  echo "  -c    Clean the build directory"
+  echo "  -h    Show this help message"
+  echo "  (none)  Run the standard build process"
+}
 
-if [ ! -f $BUILD_NAME ]
-then
-  echo "$BUILD_NAME build failed?"
-  exit
-fi
+# The main function to parse and handle arguments.
+parse_arguments() {
+  case "$1" in
+    "-c")
+      run_clean
+      run_build
+      exit
+      ;;
+    "-h")
+      show_help
+      exit
+      ;;
+    *)
+      run_build
+      exit
+      ;;
+  esac
+}
 
-echo ""
-echo "-----------------------------------"
-echo "$BUILD_NAME built"
-echo "-----------------------------------"
-
+# Call the main argument parsing function with all provided arguments.
+parse_arguments "$@"

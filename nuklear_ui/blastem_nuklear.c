@@ -23,6 +23,8 @@
 #include "../bindings.h"
 #include "../mediaplayer.h"
 
+const char *rom_path = "cube_thingy.gen";
+
 static struct nk_context *context;
 static struct rawfb_context *fb_context;
 
@@ -180,6 +182,21 @@ EM_JS(void, show_html_chooser, (const char *title, const char *extensions, int n
 	container.style.backgroundColor = 'white';
 });
 #endif
+
+void load_rom_direct()
+{
+	lockon_media(NULL);
+
+	if (current_system) {
+		current_system->next_rom = strdup(rom_path);
+		current_system->request_exit(current_system);
+	} else {
+		init_system_with_media(strdup(rom_path), SYSTEM_UNKNOWN);
+	}
+
+	clear_view_stack();
+	show_play_view();
+}
 
 void handle_chooser_result(uint8_t normal_open, char *full_path)
 {
@@ -345,8 +362,9 @@ void view_file_browser(struct nk_context *context, uint8_t normal_open)
 
 void view_load(struct nk_context *context)
 {
-	browser_label = "Select ROM";
-	view_file_browser(context, 1);
+	load_rom_direct();
+	//browser_label = "Select ROM";
+	//view_file_browser(context, 1);
 }
 
 void view_lock_on(struct nk_context *context)
@@ -2566,10 +2584,10 @@ void view_pause(struct nk_context *context)
 {
 	static menu_item items[] = {
 		{"Resume", view_play},
-		{"Load ROM", view_load},
-		{"Lock On", view_lock_on},
-		{"Save State", view_save_state},
-		{"Load State", view_load_state},
+		//{"Load ROM", view_load},
+		//{"Lock On", view_lock_on},
+		//{"Save State", view_save_state},
+		//{"Load State", view_load_state},
 		{"Settings", view_settings},
 #ifndef __EMSCRIPTEN__
 		{"Exit", NULL}
@@ -2588,11 +2606,7 @@ void view_pause(struct nk_context *context)
 	};
 
 	if (nk_begin(context, "Main Menu", nk_rect(0, 0, render_width(), render_height()), 0)) {
-		if (current_system->type == SYSTEM_SC3000) {
-			menu(context, sizeof(sc3k_items)/sizeof(*sc3k_items), sc3k_items, exit_handler);
-		} else {
-			menu(context, sizeof(items)/sizeof(*items), items, exit_handler);
-		}
+		menu(context, sizeof(items)/sizeof(*items), items, exit_handler);
 		nk_end(context);
 	}
 }
@@ -2932,12 +2946,7 @@ void blastem_nuklear_init(uint8_t file_loaded)
 
 	texture_init();
 
-	if (file_loaded) {
-		current_view = view_play;
-	} else {
-		current_view = view_menu;
-		set_content_binding_state(0);
-	}
+	load_rom_direct();
 	render_set_ui_render_fun(FRAMEBUFFER_UI, blastem_nuklear_render);
 	render_set_event_handler(FRAMEBUFFER_UI, handle_event);
 	render_set_gl_context_handlers(context_destroyed, context_created);
