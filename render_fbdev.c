@@ -136,7 +136,7 @@ static const GLchar shader_prefix[] =
 
 static GLuint load_shader(char * fname, GLenum shader_type)
 {
-	char const * parts[] = {get_home_dir(), "/.config/blastem/shaders/", fname};
+	char const * parts[] = {get_home_dir(), "/.config/cube_thingy/shaders/", fname};
 	char * shader_path = alloc_concat_m(3, parts);
 	FILE * f = fopen(shader_path, "rb");
 	free(shader_path);

@@ -2476,7 +2476,7 @@ void view_system_settings(struct nk_context *context)
 		settings_toggle(context, "Remember ROM Path", "ui\0remember_path\0", 1);
 		settings_toggle(context, "Use Native File Picker", "ui\0use_native_filechooser\0", 0);
 		settings_toggle(context, "Save config with EXE", "ui\0config_in_exe_dir\0", 0);
-		settings_string(context, "Game Save Path", "ui\0save_path\0", "$USERDATA/blastem/$ROMNAME");
+		settings_string(context, "Game Save Path", "ui\0save_path\0", "$USERDATA/cube_thingy/");
 
 		if (nk_button_label(context, "Back")) {
 			if (config_dirty) {

@@ -1307,7 +1307,7 @@ char const *get_config_dir()
 	if (!confdir) {
 		char const *base = get_userdata_dir();
 		if (base) {
-			confdir = alloc_concat(base,  PATH_SEP "blastem");
+			confdir = alloc_concat(base,  PATH_SEP "cube_thingy");
 		}
 	}
 	return confdir;
@@ -1326,7 +1326,7 @@ char const *get_config_dir()
 	if (!confdir) {
 		char const *base = get_home_dir();
 		if (base) {
-			confdir = alloc_concat(base, CONFIG_PREFIX PATH_SEP "blastem");
+			confdir = alloc_concat(base, CONFIG_PREFIX PATH_SEP "cube_thingy");
 		}
 	}
 	return confdir;

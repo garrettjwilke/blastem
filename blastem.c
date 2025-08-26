@@ -80,7 +80,7 @@ static char *get_save_dir(system_media *media)
 {
 	char *savedir_template = tern_find_path(config, "ui\0save_path\0", TVAL_PTR).ptrval;
 	if (!savedir_template) {
-		savedir_template = "$USERDATA/blastem/$ROMNAME";
+		savedir_template = "$USERDATA/cube_thingy";
 	}
 	tern_node *vars = tern_insert_ptr(NULL, "ROMNAME", media->name);
 	vars = tern_insert_ptr(vars, "ROMDIR", media->dir);
@@ -599,7 +599,7 @@ int main(int argc, char ** argv)
 		//load menu
 		romfname = tern_find_path(config, "ui\0rom\0", TVAL_PTR).ptrval;
 		if (!romfname) {
-			romfname = "menu.bin";
+			romfname = "cube_thingy.bin";
 		}
 		romfname = strdup(romfname);
 		if (is_absolute_path(romfname)) {

@@ -413,7 +413,7 @@ static GLuint load_shader(char * fname, GLenum shader_type)
 	GLchar *text;
 	long fsize;
 #ifndef __ANDROID__
-	char const * parts[] = {get_home_dir(), "/.config/blastem/shaders/", fname};
+	char const * parts[] = {get_home_dir(), "/.config/cube_thingy/shaders/", fname};
 	shader_path = alloc_concat_m(3, parts);
 	f = fopen(shader_path, "rb");
 	free(shader_path);
