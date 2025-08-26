@@ -319,7 +319,7 @@ ifdef FONT_PATH
 CFLAGS+= -DFONT_PATH='"'$(FONT_PATH)'"'
 endif
 
-ALL=dis$(EXE) zdis$(EXE) blastem$(EXE)
+ALL=dis$(EXE) zdis$(EXE) cube_thingy$(EXE)
 ifneq ($(OS),Windows)
 ALL+= termhelper
 endif
@@ -373,7 +373,7 @@ $(LIBOBJDIR) :
 libblastem.$(SO) : $(LIBOBJS:%.o=$(LIBOBJDIR)/%.o)
 	$(CC) -shared -o $@ $^ $(LDFLAGS)
 
-blastem$(EXE) : $(MAINOBJS:%.o=$(OBJDIR)/%.o)
+cube_thingy$(EXE) : $(MAINOBJS:%.o=$(OBJDIR)/%.o)
 	$(CC) -o $@ $^ $(LDFLAGS) $(PROFFLAGS)
 	$(FIXUP) ./$@
 

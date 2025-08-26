@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+const char *configDefault = "default.cfg";
+const char *configCustom = "cube_thingy.cfg";
+
 #ifdef __MINGW64_VERSION_MAJOR
 #define MINGW_W64_VERSION (__MINGW64_VERSION_MAJOR * 1000 + __MINGW64_VERSION_MINOR)
 #else
@@ -207,7 +210,7 @@ tern_node *parse_bundled_config(char *config_name)
 {
 	tern_node *ret = NULL;
 #ifdef CONFIG_PATH
-	if (!strcmp("default.cfg", config_name) || !strcmp("blastem.cfg", config_name)) {
+	if (!strcmp(configDefault, config_name) || !strcmp(configCustom, config_name)) {
 		char *confpath = path_append(CONFIG_PATH, config_name);
 		ret = parse_config_file(confpath);
 		free(confpath);
@@ -319,7 +322,7 @@ static void update_pad_menu_binding(char *key, tern_val val, uint8_t valtype, vo
 #define CONFIG_VERSION 11
 static tern_node *migrate_config(tern_node *config, int from_version)
 {
-	tern_node *def_config = parse_bundled_config("default.cfg");
+	tern_node *def_config = parse_bundled_config(configDefault);
 	switch(from_version)
 	{
 	case 0: {
@@ -542,7 +545,7 @@ static tern_node *migrate_config(tern_node *config, int from_version)
 static uint8_t app_config_in_config_dir;
 tern_node *load_config()
 {
-	tern_node *ret = load_overrideable_config("blastem.cfg", "default.cfg", &app_config_in_config_dir);
+	tern_node *ret = load_overrideable_config(configCustom, configDefault, &app_config_in_config_dir);
 
 	if (!ret) {
 		if (get_config_dir()) {
@@ -593,7 +596,7 @@ void persist_config_at(tern_node *app_config, tern_node *to_save, char *fname)
 
 void persist_config(tern_node *config)
 {
-	persist_config_at(config, config, "blastem.cfg");
+	persist_config_at(config, config, configCustom);
 }
 
 void delete_custom_config_at(char *fname)
@@ -608,7 +611,7 @@ void delete_custom_config_at(char *fname)
 
 void delete_custom_config(void)
 {
-	delete_custom_config_at("blastem.cfg");
+	delete_custom_config_at(configCustom);
 }
 
 char **get_extension_list(tern_node *config, uint32_t *num_exts_out)
