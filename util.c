@@ -508,7 +508,7 @@ void warning(char *format, ...)
 	va_end(args);
 }
 
-static uint8_t output_enabled = 1;
+static uint8_t output_enabled = 0;
 void info_message(char *format, ...)
 {
 	va_list args;
