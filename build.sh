@@ -3,6 +3,7 @@
 OS_CHECK=$(uname)
 BUILD_NAME="cube_thingy"
 BUILD_DIR="out"
+ROM_NAME="cube_thingy.gen"
 
 # A function to run the standard build process.
 run_build() {
@@ -48,6 +49,12 @@ run_build() {
     rm -rf $BUILD_DIR
   fi
   mkdir -p $BUILD_DIR
+  if [ -f $ROM_NAME ]
+  then
+    cp $ROM_NAME $BUILD_DIR/
+  else
+    cp testrom.bin $BUILD_DIR/$ROM_NAME
+  fi
   cp -r $BUILD_NAME cube_thingy.ttf gamecontrollerdb.txt rom.db default.cfg images shaders $BUILD_DIR/
   echo ""
   echo "-----------------------------------"

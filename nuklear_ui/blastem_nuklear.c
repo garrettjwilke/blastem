@@ -2875,21 +2875,62 @@ static void texture_init(void)
 
 static void style_init(uint8_t window, struct nk_context *ctx)
 {
+	// Clear table to safe default (zero/transparent black)
+	struct nk_color table[NK_COLOR_COUNT] = {0};
+
+	// Neutral UI
+	table[NK_COLOR_TEXT] = nk_rgba(220, 220, 220, 255);
+	table[NK_COLOR_WINDOW] = nk_rgba(30, 30, 30, 255);
+	table[NK_COLOR_HEADER] = nk_rgba(45, 45, 45, 255);
+	table[NK_COLOR_BORDER] = nk_rgba(60, 60, 60, 255);
+
+	// Buttons
+	table[NK_COLOR_BUTTON] = nk_rgba(60, 60, 60, 255);                     // idle
+	table[NK_COLOR_BUTTON_HOVER] = nk_rgba(160, 100, 255, 255);           // hover (purple)
+	table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(255, 128, 0, 255);            // active (orange)
+
+	// Checkboxes / Toggles
+	table[NK_COLOR_TOGGLE] = nk_rgba(70, 70, 70, 255);
+	table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(160, 100, 255, 255);           // hover (purple)
+	table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(255, 128, 0, 255);            // checked fill (orange)
+
+	// Combo boxes / selection (hovered or focused item)
+	table[NK_COLOR_SELECT] = nk_rgba(160, 100, 255, 180);                 // hover/focus (purple, semi-transparent)
+	table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(255, 160, 64, 255);           // clicked (orange)
+
+	// Sliders
+	table[NK_COLOR_SLIDER] = nk_rgba(70, 70, 70, 255);
+	table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(255, 128, 0, 200);
+	table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(160, 100, 255, 255);    // purple
+	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(255, 180, 80, 255);    // orange
+
+	// Inputs / scrollbars
+	table[NK_COLOR_PROPERTY] = nk_rgba(60, 60, 60, 255);
+	table[NK_COLOR_EDIT] = nk_rgba(50, 50, 50, 255);
+	table[NK_COLOR_EDIT_CURSOR] = nk_rgba(255, 255, 255, 255);
+
+	table[NK_COLOR_SCROLLBAR] = nk_rgba(40, 40, 40, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(80, 80, 80, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(160, 100, 255, 255); // purple
+	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(255, 128, 0, 255);  // orange
+
+	table[NK_COLOR_TAB_HEADER] = nk_rgba(32, 32, 32, 255);
+
+	nk_style_from_table(ctx, table);
+
+	// Per-widget overrides
 	uint32_t height = window < FRAMEBUFFER_USER_START ? render_height() : 480;
 	ctx->style.checkbox.padding.x = height / 120;
 	ctx->style.checkbox.padding.y = height / 120;
 	ctx->style.checkbox.border = height / 240;
-	ctx->style.checkbox.cursor_normal.type = NK_STYLE_ITEM_COLOR;
-	ctx->style.checkbox.cursor_normal.data.color = (struct nk_color){
-		.r = 255, .g = 128, .b = 0, .a = 255
-	};
-	ctx->style.checkbox.cursor_hover = ctx->style.checkbox.cursor_normal;
-	ctx->style.property.inc_button.text_hover = (struct nk_color){
-		.r = 255, .g = 128, .b = 0, .a = 255
-	};
-	ctx->style.property.dec_button.text_hover = ctx->style.property.inc_button.text_hover;
-	ctx->style.combo.button.text_hover = ctx->style.property.inc_button.text_hover;
+
+	ctx->style.combo.button.normal = nk_style_item_color(nk_rgba(60, 60, 60, 255));            // idle
+	ctx->style.combo.button.hover  = nk_style_item_color(nk_rgba(160, 100, 255, 255));         // hover/focus (purple)
+	ctx->style.combo.button.active = nk_style_item_color(nk_rgba(255, 128, 0, 255));           // active (orange)
+
+
 }
+
 
 static void fb_resize(void)
 {
@@ -2909,8 +2950,8 @@ void show_pause_menu(void)
 {
 	if (current_view == view_play) {
 		set_content_binding_state(0);
-		context->style.window.background = nk_rgba(0, 0, 0, 128);
-		context->style.window.fixed_background = nk_style_item_color(nk_rgba(0, 0, 0, 128));
+		context->style.window.background = nk_rgba(0, 0, 0, 255);
+		context->style.window.fixed_background = nk_style_item_color(nk_rgba(0, 0, 0, 255));
 		current_view = view_pause;
 		context->input.selected_widget = 0;
 		system_request_exit(current_system, 1);
