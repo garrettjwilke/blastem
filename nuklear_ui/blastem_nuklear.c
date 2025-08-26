@@ -2875,6 +2875,9 @@ static void texture_init(void)
 
 static void style_init(uint8_t window, struct nk_context *ctx)
 {
+	#define COLOR_ORANGE nk_rgba(255, 128, 0, 255)
+	#define COLOR_PURPLE nk_rgba(160, 100, 255, 255)
+	#define COLOR_DARK_GRAY nk_rgba(60, 60, 60, 255)
 	// Clear table to safe default (zero/transparent black)
 	struct nk_color table[NK_COLOR_COUNT] = {0};
 
@@ -2885,34 +2888,34 @@ static void style_init(uint8_t window, struct nk_context *ctx)
 	table[NK_COLOR_BORDER] = nk_rgba(60, 60, 60, 255);
 
 	// Buttons
-	table[NK_COLOR_BUTTON] = nk_rgba(60, 60, 60, 255);                     // idle
-	table[NK_COLOR_BUTTON_HOVER] = nk_rgba(160, 100, 255, 255);           // hover (purple)
-	table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(255, 128, 0, 255);            // active (orange)
+	table[NK_COLOR_BUTTON] = COLOR_DARK_GRAY;
+	table[NK_COLOR_BUTTON_HOVER] = COLOR_PURPLE;
+	table[NK_COLOR_BUTTON_ACTIVE] = COLOR_ORANGE;
 
 	// Checkboxes / Toggles
 	table[NK_COLOR_TOGGLE] = nk_rgba(70, 70, 70, 255);
-	table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(160, 100, 255, 255);           // hover (purple)
-	table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(255, 128, 0, 255);            // checked fill (orange)
+	table[NK_COLOR_TOGGLE_HOVER] = COLOR_PURPLE;           // hover (purple)
+	table[NK_COLOR_TOGGLE_CURSOR] = COLOR_ORANGE;            // checked fill (orange)
 
 	// Combo boxes / selection (hovered or focused item)
 	table[NK_COLOR_SELECT] = nk_rgba(160, 100, 255, 180);                 // hover/focus (purple, semi-transparent)
-	table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(255, 160, 64, 255);           // clicked (orange)
+	table[NK_COLOR_SELECT_ACTIVE] = COLOR_ORANGE;           // clicked (orange)
 
 	// Sliders
 	table[NK_COLOR_SLIDER] = nk_rgba(70, 70, 70, 255);
 	table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(255, 128, 0, 200);
-	table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(160, 100, 255, 255);    // purple
-	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(255, 180, 80, 255);    // orange
+	table[NK_COLOR_SLIDER_CURSOR_HOVER] = COLOR_PURPLE;    // purple
+	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = COLOR_ORANGE;    // orange
 
 	// Inputs / scrollbars
-	table[NK_COLOR_PROPERTY] = nk_rgba(60, 60, 60, 255);
+	table[NK_COLOR_PROPERTY] = COLOR_DARK_GRAY;
 	table[NK_COLOR_EDIT] = nk_rgba(50, 50, 50, 255);
 	table[NK_COLOR_EDIT_CURSOR] = nk_rgba(255, 255, 255, 255);
 
 	table[NK_COLOR_SCROLLBAR] = nk_rgba(40, 40, 40, 255);
 	table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(80, 80, 80, 255);
-	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(160, 100, 255, 255); // purple
-	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(255, 128, 0, 255);  // orange
+	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = COLOR_PURPLE; // purple
+	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = COLOR_ORANGE;  // orange
 
 	table[NK_COLOR_TAB_HEADER] = nk_rgba(32, 32, 32, 255);
 
