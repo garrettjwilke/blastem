@@ -8,6 +8,18 @@
 char **preferred_font_paths(uint32_t *num_out)
 {
 	char ** ret;
+	*num_out = 0;
+
+	// First try: cube_thingy.ttf in current directory
+	const char *local_font = "cube_thingy.ttf";
+	FILE *f = fopen(local_font, "rb");
+	if (f) {
+		fclose(f);
+		ret = calloc(1, sizeof(char*));
+		ret[0] = strdup(local_font);
+		*num_out = 1;
+		return ret;
+	}
 #ifdef FONT_PATH
 	FILE *f = fopen(FONT_PATH, "rb");
 	if (f) {

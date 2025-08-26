@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
-
 OS_CHECK=$(uname)
 BUILD_NAME="cube_thingy"
 

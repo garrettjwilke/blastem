@@ -58,7 +58,8 @@ CFLAGS:=-std=gnu99 -Wreturn-type -Werror=return-type -Werror=implicit-function-d
 
 ifeq ($(OS),Darwin)
 LIBS=$(SDL) glew
-FONT:=nuklear_ui/font_mac.o
+FONT:=nuklear_ui/font.o
+#FONT:=nuklear_ui/font_mac.o
 CHOOSER:=nuklear_ui/filechooser_null.o
 SO:=dylib
 else

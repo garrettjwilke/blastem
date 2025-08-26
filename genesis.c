@@ -2534,6 +2534,7 @@ static void config_updated(system_header *system)
 
 static void start_vgm_log(system_header *system, char *filename)
 {
+	return;
 	genesis_context *gen = (genesis_context *)system;
 	vgm_writer *vgm = vgm_write_open(filename, gen->version_reg & HZ50 ? 50 : 60, gen->normal_clock, gen->m68k->cycles);
 	if (vgm) {
@@ -2556,6 +2557,7 @@ static void start_vgm_log(system_header *system, char *filename)
 
 static void stop_vgm_log(system_header *system)
 {
+	return;
 	puts("Stopped VGM log");
 	genesis_context *gen = (genesis_context *)system;
 	vgm_close(gen->psg->vgm);

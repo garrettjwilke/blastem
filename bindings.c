@@ -338,6 +338,7 @@ void handle_binding_up(keybinding * binding)
 	case BIND_UI:
 		switch (binding->subtype_a)
 		{
+		/*
 		case UI_DEBUG_MODE_INC:
 			if (allow_content_binds) {
 				current_system->inc_debug_mode(current_system);
@@ -401,6 +402,7 @@ void handle_binding_up(keybinding * binding)
 				keyboard_captured = !keyboard_captured;
 			}
 			break;
+		*/
 		case UI_TOGGLE_FULLSCREEN:
 			render_toggle_fullscreen();
 			break;
@@ -414,6 +416,7 @@ void handle_binding_up(keybinding * binding)
 				reload_media();
 			}
 			break;
+		/*
 		case UI_SMS_PAUSE:
 			if (allow_content_binds && current_system->gamepad_down) {
 				current_system->gamepad_down(current_system, GAMEPAD_MAIN_UNIT, MAIN_UNIT_PAUSE);
@@ -449,6 +452,7 @@ void handle_binding_up(keybinding * binding)
 				}
 			}
 			break;
+		*/
 		case UI_MENU:
 #ifndef DISABLE_NUKLEAR
 			if (is_nuklear_active()) {
@@ -470,6 +474,8 @@ void handle_binding_up(keybinding * binding)
 			break;
 		case UI_EXIT:
 			exit(0);
+
+		/*
 		case UI_PLANE_DEBUG:
 		case UI_VRAM_DEBUG:
 		case UI_CRAM_DEBUG:
@@ -489,6 +495,7 @@ void handle_binding_up(keybinding * binding)
 				current_system->paste_cur_char = 0;
 			}
 			break;
+		*/
 		}
 		break;
 	}

@@ -35,6 +35,8 @@ typedef struct
 	struct nk_image  ui;
 } ui_image;
 
+static ui_image *cube_thingy_image;
+
 static ui_image **ui_images, *controller_360, *controller_ps4,
 	*controller_ps4_6b, *controller_wiiu, *controller_gen_6b;
 static uint32_t num_ui_images, ui_image_storage;
@@ -652,8 +654,8 @@ void view_key_bindings(struct nk_context *context)
 	static const char *controller1_binds[] = {
 		"gamepads.1.up", "gamepads.1.down", "gamepads.1.left", "gamepads.1.right",
 		"gamepads.1.a", "gamepads.1.b", "gamepads.1.c",
-		"gamepads.1.x", "gamepads.1.y", "gamepads.1.z",
-		"gamepads.1.start", "gamepads.1.mode"
+		//"gamepads.1.x", "gamepads.1.y", "gamepads.1.z",
+		"gamepads.1.start"
 	};
 	static const char *controller2_binds[] = {
 		"gamepads.2.up", "gamepads.2.down", "gamepads.2.left", "gamepads.2.right",
@@ -662,14 +664,10 @@ void view_key_bindings(struct nk_context *context)
 		"gamepads.2.start", "gamepads.2.mode"
 	};
 	static const char *general_binds[] = {
-		"ui.menu", "ui.save_state", "ui.load_state", "ui.toggle_fullscreen", "ui.soft_reset", "ui.reload",
-		"ui.screenshot", "ui.vgm_log", "ui.record_video", "ui.sms_pause", "ui.toggle_keyboard_captured", 
-		"ui.release_mouse", "ui.exit", "cassette.play", "cassette.stop", "cassette.rewind"
+		"ui.menu", "ui.toggle_fullscreen", "ui.reload"
 	};
 	static const char *general_names[] = {
-		"Show Menu", "Quick Save", "Quick Load", "Toggle Fullscreen", "Soft Reset", "Reload Media",
-		"Internal Screenshot", "Toggle VGM Log", "Toggle Video Recording", "SMS Pause", "Capture Keyboard", 
-		"Release Mouse", "Exit", "Cassette Play", "Cassette Stop", "Cassette Rewind"
+		"Show Menu", "Toggle Fullscreen", "Restart Game"
 	};
 	static const char *speed_binds[] = {
 		"ui.next_speed", "ui.prev_speed",
@@ -705,10 +703,10 @@ void view_key_bindings(struct nk_context *context)
 	uint32_t height = render_height();
 	if (nk_begin(context, "Keyboard Bindings", nk_rect(0, 0, width, height), 0)) {
 		binding_group(context, "Controller 1", controller1_binds, NULL, NUM_C1_BINDS, binding_lookup);
-		binding_group(context, "Controller 2", controller2_binds, NULL, NUM_C2_BINDS, binding_lookup);
+		//binding_group(context, "Controller 2", controller2_binds, NULL, NUM_C2_BINDS, binding_lookup);
 		binding_group(context, "General", general_binds, general_names, NUM_GEN_BINDS, binding_lookup);
-		binding_group(context, "Speed Control", speed_binds, speed_names, NUM_SPEED_BINDS, binding_lookup);
-		binding_group(context, "Debug", debug_binds, debug_names, NUM_DBG_BINDS, binding_lookup);
+		//binding_group(context, "Speed Control", speed_binds, speed_names, NUM_SPEED_BINDS, binding_lookup);
+		//binding_group(context, "Debug", debug_binds, debug_names, NUM_DBG_BINDS, binding_lookup);
 		nk_layout_row_static(context, context->style.font->height * 1.1333, (render_width() - 80) / 2, 1);
 		if (nk_button_label(context, "Back")) {
 			pop_view();
@@ -2204,10 +2202,10 @@ void view_video_settings(struct nk_context *context)
 		settings_toggle(context, "Fullscreen", "video\0fullscreen\0", 0);
 		settings_toggle(context, "Open GL", "video\0gl\0", 1);
 		settings_toggle(context, "Scanlines", "video\0scanlines\0", 0);
-		settings_toggle(context, "Integer Scaling", "video\0integer_scaling\0", 0);
+		//settings_toggle(context, "Integer Scaling", "video\0integer_scaling\0", 0);
 		selected_vsync = settings_dropdown_ex(context, "VSync", vsync_opts, vsync_opt_names, num_vsync_opts, selected_vsync, "video\0vsync\0");
-		settings_int_input(context, "Windowed Width", "video\0width\0", "640");
-		nk_label(context, "Shader", NK_TEXT_LEFT);
+		//settings_int_input(context, "Windowed Width", "video\0width\0", "640");
+		nk_label(context, "Filter", NK_TEXT_LEFT);
 		uint32_t next_selected = nk_combo(context, (const char **)prog_names, num_progs, selected_prog, context->style.font->height, nk_vec2(desired_width, desired_width));
 		if (next_selected != selected_prog) {
 			selected_prog = next_selected;
@@ -2215,6 +2213,7 @@ void view_video_settings(struct nk_context *context)
 			config = tern_insert_path(config, "video\0fragment_shader\0", (tern_val){.ptrval = strdup(progs[next_selected].fragment)}, TVAL_PTR);
 			config = tern_insert_path(config, "video\0vertex_shader\0", (tern_val){.ptrval = strdup(progs[next_selected].vertex)}, TVAL_PTR);
 		}
+		/*
 		settings_int_property(context, "NTSC Overscan", "Top", "video\0ntsc\0overscan\0top\0", 2, 0, 32);
 		settings_int_property(context, "", "Bottom", "video\0ntsc\0overscan\0bottom\0", 17, 0, 32);
 		settings_int_property(context, "", "Left", "video\0ntsc\0overscan\0left\0", 13, 0, 32);
@@ -2223,7 +2222,7 @@ void view_video_settings(struct nk_context *context)
 		settings_int_property(context, "", "Bottom", "video\0pal\0overscan\0bottom\0", 17, 0, 32);
 		settings_int_property(context, "", "Left", "video\0pal\0overscan\0left\0", 13, 0, 32);
 		settings_int_property(context, "", "Right", "video\0pal\0overscan\0right\0", 14, 0, 32);
-
+		*/
 		if (nk_button_label(context, "Back")) {
 			pop_view();
 		}
@@ -2562,9 +2561,9 @@ void view_settings(struct nk_context *context)
 		{"Key Bindings", view_key_bindings},
 		{"Controllers", view_controllers},
 		{"Video", view_video_settings},
-		{"Audio", view_audio_settings},
-		{"System", view_system_settings},
-		{"Firmware", view_bios_settings},
+		//{"Audio", view_audio_settings},
+		//{"System", view_system_settings},
+		//{"Firmware", view_bios_settings},
 		{"Reset to Defaults", view_confirm_reset},
 		{"Back", view_back}
 	};
@@ -2580,11 +2579,51 @@ void exit_handler(uint32_t index)
 	exit(0);
 }
 
+static void menu_pause(struct nk_context *context, uint32_t num_entries, const menu_item *items, menu_handler handler, int y_offset)
+{
+	const float button_height = context->style.font->height * 1.75f;
+	const float ideal_button_width = context->style.font->height * 10.0f;
+	const float button_space = 6.0f;
+
+	uint32_t width = render_width();
+	uint32_t button_width = width > ideal_button_width ? ideal_button_width : width;
+	uint32_t left = width / 2 - button_width / 2;
+
+	// Total height = offset (from image) + height of all buttons
+	float layout_height = button_height * num_entries;
+	nk_layout_space_begin(context, NK_STATIC, layout_height, num_entries);
+
+
+	for (uint32_t i = 0; i < num_entries; i++)
+	{
+		nk_layout_space_push(context,
+			nk_rect(left, y_offset + i * button_height, button_width, button_height - button_space));
+
+		if (nk_button_label(context, items[i].title)) {
+			if (items[i].next_view) {
+				push_view(items[i].next_view);
+				if (current_view == view_save_state || current_view == view_load_state) {
+					free_slot_info(slots);
+					slots = NULL;
+				} else if (current_view == view_play) {
+					clear_view_stack();
+					set_content_binding_state(1);
+				}
+			} else {
+				handler(i);
+			}
+		}
+	}
+
+	nk_layout_space_end(context);
+}
+
+
 void view_pause(struct nk_context *context)
 {
 	static menu_item items[] = {
-		{"Resume", view_play},
-		//{"Load ROM", view_load},
+		{"Resume Game", view_play},
+		//{"Restart Game", view_load},
 		//{"Lock On", view_lock_on},
 		//{"Save State", view_save_state},
 		//{"Load State", view_load_state},
@@ -2606,9 +2645,48 @@ void view_pause(struct nk_context *context)
 	};
 
 	if (nk_begin(context, "Main Menu", nk_rect(0, 0, render_width(), render_height()), 0)) {
+		/*
+		int logo_height = 0;
+		int y_offset = 0;
+
+		if (cube_thingy_image) {
+			int win_w = render_width();
+			int win_h = render_height();
+
+			int img_w = cube_thingy_image->width;
+			int img_h = cube_thingy_image->height;
+
+			// Scale to max 5% of window size
+			float max_w = win_w * 0.7f;
+			float max_h = win_h * 0.7f;
+
+			float scale = fminf(max_w / img_w, max_h / img_h);
+			if (scale > 1.0f) scale = 1.0f;
+
+			int draw_w = img_w * scale;
+			logo_height = img_h * scale;
+
+			int x = (win_w - draw_w) / 2;
+			int y = win_h * 0.05f; // 5% padding from top
+
+			y_offset = y + logo_height + 5; // 20px space between logo and menu
+
+			nk_layout_space_begin(context, NK_STATIC, logo_height, 1);
+			nk_layout_space_push(context, nk_rect(x, y, draw_w, logo_height));
+			nk_image(context, cube_thingy_image->ui);
+			nk_layout_space_end(context);
+		}
+		nk_layout_space_begin(context, NK_STATIC, 20, 1); // 20px space, 1 widget
+		nk_layout_space_push(context, nk_rect(0, 0, render_width(), 20));
+		nk_label(context, "DEBUG TEXT BELOW IMAGE", NK_TEXT_CENTERED);
+		nk_layout_space_end(context);
+		*/
+		// Start menu below logo + padding
+		//menu_pause(context, sizeof(items)/sizeof(*items), items, exit_handler, y_offset);
 		menu(context, sizeof(items)/sizeof(*items), items, exit_handler);
 		nk_end(context);
 	}
+
 }
 
 void view_menu(struct nk_context *context)
@@ -2943,9 +3021,9 @@ void blastem_nuklear_init(uint8_t file_loaded)
 	controller_ps4_6b = load_ui_image("images/ps4_6b.png");
 	controller_wiiu = load_ui_image("images/wiiu.png");
 	controller_gen_6b = load_ui_image("images/genesis_6b.png");
+	cube_thingy_image = load_ui_image("images/cube_thingy.png");
 
 	texture_init();
-
 	load_rom_direct();
 	render_set_ui_render_fun(FRAMEBUFFER_UI, blastem_nuklear_render);
 	render_set_event_handler(FRAMEBUFFER_UI, handle_event);

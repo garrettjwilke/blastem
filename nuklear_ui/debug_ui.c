@@ -205,6 +205,7 @@ static void cram_debug_ui(void)
 
 uint8_t debug_create_window(uint8_t debug_type, char *caption, uint32_t width, uint32_t height, window_close_handler close_handler)
 {
+	return 0;
 #ifndef DISABLE_OPENGL
 	if (!render_has_gl()) {
 #endif
