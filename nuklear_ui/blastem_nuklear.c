@@ -2564,6 +2564,7 @@ void view_settings(struct nk_context *context)
 		//{"Audio", view_audio_settings},
 		//{"System", view_system_settings},
 		//{"Firmware", view_bios_settings},
+		{"BlastEm Credits", view_about},
 		{"Reset to Defaults", view_confirm_reset},
 		{"Back", view_back}
 	};

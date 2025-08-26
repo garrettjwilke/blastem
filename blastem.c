@@ -72,7 +72,7 @@ void update_title(char *rom_name)
 		free(title);
 		title = NULL;
 	}
-	title = alloc_concat(rom_name, " - BlastEm");
+	title = "cubethingy";
 	render_update_caption(title);
 }
 
@@ -586,7 +586,7 @@ int main(int argc, char ** argv)
 		if (reader_addr) {
 			render_set_external_sync(1);
 		}
-		render_init(width, height, "BlastEm", fullscreen);
+		render_init(width, height, "cubethingy", fullscreen);
 		render_set_drag_drop_handler(on_drag_drop);
 	}
 	set_bindings();
