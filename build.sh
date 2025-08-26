@@ -51,9 +51,9 @@ run_build() {
   mkdir -p $BUILD_DIR
   if [ -f $ROM_NAME ]
   then
-    cp $ROM_NAME $BUILD_DIR/
+    cp $ROM_NAME ${BUILD_DIR}/
   else
-    cp testrom.bin $BUILD_DIR/$ROM_NAME
+    cp testrom.bin ${BUILD_DIR}/$ROM_NAME
   fi
   cp -r $BUILD_NAME cube_thingy.ttf gamecontrollerdb.txt rom.db default.cfg images shaders $BUILD_DIR/
   echo ""
