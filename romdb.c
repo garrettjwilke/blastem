@@ -45,7 +45,8 @@ tern_node *get_rom_db()
 	if (!db) {
 		db = parse_bundled_config("rom.db");
 		if (!db) {
-			fatal_error("Failed to load ROM DB\n");
+			db = NULL;
+			//fatal_error("Failed to load ROM DB\n");
 		}
 	}
 	return db;

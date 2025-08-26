@@ -2,6 +2,7 @@
 
 OS_CHECK=$(uname)
 BUILD_NAME="cube_thingy"
+BUILD_DIR="out"
 
 # A function to run the standard build process.
 run_build() {
@@ -42,9 +43,16 @@ run_build() {
     exit 1
   fi
 
+  if [ -d $BUILD_DIR ]
+  then
+    rm -rf $BUILD_DIR
+  fi
+  mkdir -p $BUILD_DIR
+  cp -r $BUILD_NAME cube_thingy.ttf gamecontrollerdb.txt rom.db default.cfg images shaders $BUILD_DIR/
   echo ""
   echo "-----------------------------------"
-  echo "$BUILD_NAME built successfully"
+  echo "$BUILD_NAME built successfully to:"
+  echo "$BUILD_DIR"
   echo "-----------------------------------"
 }
 
