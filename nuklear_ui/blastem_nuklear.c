@@ -2877,8 +2877,12 @@ static void texture_init(void)
 static void style_init(uint8_t window, struct nk_context *ctx)
 {
 	#define COLOR_ORANGE nk_rgba(255, 128, 0, 255)
+	#define COLOR_ORANGE_CLEAR nk_rgba(255, 128, 0, 255)
 	#define COLOR_PURPLE nk_rgba(160, 100, 255, 255)
+	#define COLOR_PURPLE_CLEAR nk_rgba(160, 100, 255, 128)
 	#define COLOR_DARK_GRAY nk_rgba(60, 60, 60, 255)
+	#define COLOR_DARK_GRAY_CLEAR nk_rgba(60, 60, 60, 128)
+	#define COLOR_CLEAR nk_rgba(0,0,0,0)
 	// Clear table to safe default (zero/transparent black)
 	struct nk_color table[NK_COLOR_COUNT] = {0};
 
@@ -2890,23 +2894,23 @@ static void style_init(uint8_t window, struct nk_context *ctx)
 
 	// Buttons
 	table[NK_COLOR_BUTTON] = COLOR_DARK_GRAY;
-	table[NK_COLOR_BUTTON_HOVER] = COLOR_PURPLE;
-	table[NK_COLOR_BUTTON_ACTIVE] = COLOR_ORANGE;
+	table[NK_COLOR_BUTTON_HOVER] = COLOR_PURPLE_CLEAR;
+	table[NK_COLOR_BUTTON_ACTIVE] = COLOR_CLEAR;
 
 	// Checkboxes / Toggles
 	table[NK_COLOR_TOGGLE] = nk_rgba(70, 70, 70, 255);
-	table[NK_COLOR_TOGGLE_HOVER] = COLOR_PURPLE;           // hover (purple)
-	table[NK_COLOR_TOGGLE_CURSOR] = COLOR_ORANGE;            // checked fill (orange)
+	table[NK_COLOR_TOGGLE_HOVER] = COLOR_PURPLE_CLEAR;
+	table[NK_COLOR_TOGGLE_CURSOR] = COLOR_ORANGE;
 
 	// Combo boxes / selection (hovered or focused item)
-	table[NK_COLOR_SELECT] = nk_rgba(160, 100, 255, 180);                 // hover/focus (purple, semi-transparent)
-	table[NK_COLOR_SELECT_ACTIVE] = COLOR_ORANGE;           // clicked (orange)
+	table[NK_COLOR_SELECT] = nk_rgba(160, 100, 255, 180);
+	table[NK_COLOR_SELECT_ACTIVE] = COLOR_ORANGE;
 
 	// Sliders
 	table[NK_COLOR_SLIDER] = nk_rgba(70, 70, 70, 255);
 	table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(255, 128, 0, 200);
-	table[NK_COLOR_SLIDER_CURSOR_HOVER] = COLOR_PURPLE;    // purple
-	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = COLOR_ORANGE;    // orange
+	table[NK_COLOR_SLIDER_CURSOR_HOVER] = COLOR_PURPLE;
+	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = COLOR_ORANGE;
 
 	// Inputs / scrollbars
 	table[NK_COLOR_PROPERTY] = COLOR_DARK_GRAY;
@@ -2928,9 +2932,9 @@ static void style_init(uint8_t window, struct nk_context *ctx)
 	ctx->style.checkbox.padding.y = height / 120;
 	ctx->style.checkbox.border = height / 240;
 
-	ctx->style.combo.button.normal = nk_style_item_color(nk_rgba(60, 60, 60, 255));            // idle
-	ctx->style.combo.button.hover  = nk_style_item_color(nk_rgba(160, 100, 255, 255));         // hover/focus (purple)
-	ctx->style.combo.button.active = nk_style_item_color(nk_rgba(255, 128, 0, 255));           // active (orange)
+	ctx->style.combo.button.normal = nk_style_item_color(nk_rgba(60, 60, 60, 255));
+	ctx->style.combo.button.hover  = nk_style_item_color(COLOR_PURPLE_CLEAR);
+	ctx->style.combo.button.active = nk_style_item_color(COLOR_ORANGE);
 
 
 }
