@@ -1,0 +1,53 @@
+name: Build BlastEm for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build-windows:
+    name: Cross-compile for Windows
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install cross-compiler and SDL/GLEW for MinGW
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          mingw-w64 \
+          zip \
+          make \
+          gcc-mingw-w64-x86-64 \
+          libsdl2-dev \
+          libsdl2-2.0-0 \
+          libsdl2-mixer-dev \
+          libglew-dev \
+          zlib1g-dev \
+          libpng-dev
+
+    - name: Build BlastEm for Windows x64
+      env:
+        OS: Win64
+        SDL: sdl2
+      run: |
+        make clean
+        make PORTABLE=1 OS=Windows CPU=x86_64 SDL=sdl2 -j$(nproc)
+        make menu.bin tmss.md
+
+    - name: Create .zip package
+      run: |
+        mkdir dist
+        cp blastem.exe menu.bin tmss.md dist/
+        cp -r shaders images default.cfg rom.db gamecontrollerdb.txt systems.cfg dist/
+        cp README COPYING CHANGELOG dist/ || true
+        zip -r blastem-win64.zip dist/
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: blastem-win64
+        path: blastem-win64.zip
