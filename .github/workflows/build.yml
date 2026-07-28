@@ -1,23 +1,24 @@
 name: build
 
 # Build this patched (debug-capable) BlastEm fork for every platform sgdkx uses:
-# macOS arm64/x86_64, Linux x86_64/arm64, Windows x64. Each push to main (or a
-# manual run) creates a `build-<sha>` release, marked Latest, whose asset names
-# match what sgdkx downloads (BlastEm-macOS-<arch>-*, blastem-linux-<arch>-*,
-# blastem-win64-*). Self-contained: SDL2/GLEW are bundled into each artifact.
+# macOS arm64/x86_64, Linux x86_64/arm64, Windows x64. Publishing is deliberate:
+# push a `v*` tag (or run this manually) to cut a release, marked Latest, whose
+# asset names match what sgdkx downloads (BlastEm-macOS-<arch>-*,
+# blastem-linux-<arch>-*, blastem-win64-*). Self-contained: SDL2/GLEW are bundled
+# into each artifact.
+#
+# This used to run on every push to main. It no longer does, because the macos-14
+# leg costs real money — macOS runner minutes are billed even though this repo is
+# public, and one full build is ~29 min (~$2). Releasing on a tag also keeps the
+# invariant sgdkx depends on: whatever is marked Latest always has assets for all
+# three platforms. Gating only the macOS job would have published Latest releases
+# with no macOS build in them.
 
 on:
   push:
-    branches: [main]
-    paths:
-      - '**.c'
-      - '**.h'
-      - '**.m'
-      - 'Makefile'
-      - 'nuklear_ui/**'
-      - 'version.inc'
-      - 'assets/**'
-      - '.github/workflows/build.yml'
+    # `v*` only. The release job below also creates `build-<sha>` tags; those must
+    # never re-trigger this workflow.
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -33,8 +34,9 @@ env:
   GLEW_WIN_VER: '2.2.0'
 
 jobs:
-  # Create (or refresh) the build-<sha> release at the current commit and mark it
-  # Latest, so `sgdkx install` (which resolves "latest") picks up the newest build.
+  # Create (or refresh) the release at the current commit and mark it Latest, so
+  # `sgdkx install` (which resolves "latest") picks up the newest build. A tag
+  # push releases under that tag; a manual run still uses build-<sha>.
   release:
     runs-on: ubuntu-latest
     outputs:
@@ -49,7 +51,12 @@ jobs:
         run: |
           set -euo pipefail
           sha=$(git rev-parse --short=12 HEAD)
-          tag="build-$sha"
+          # Tag push: release under the pushed tag. Manual run: keep build-<sha>.
+          if [ "${GITHUB_REF_TYPE:-}" = tag ]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag="build-$sha"
+          fi
           base=$(sed -E -n 's/.*BLASTEM_VERSION "([^"]+)".*/\1/p' version.inc)
           ver="${base}-${sha}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
