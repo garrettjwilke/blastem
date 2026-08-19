@@ -58,6 +58,8 @@
 #define BORDER_BOT_V28_PAL 32
 #define BORDER_BOT_V30_PAL 24
 
+pixel_t mix_colors(pixel_t left, pixel_t right, uint32_t mix);
+
 enum {
 	INACTIVE = 0,
 	PREPARING, //used for line 0x1FF
@@ -514,6 +516,7 @@ vdp_context *init_vdp_context(uint8_t region_pal, uint8_t has_max_vsram, uint8_t
 #ifndef _WIN32
 	if (render_is_threaded_video()) {
 		context = ret->renderer = init_vdp_context_int(region_pal, has_max_vsram, type);
+		context->is_threaded_renderer = 1;
 	} else
 #endif
 	{
@@ -2929,7 +2932,9 @@ void vdp_update_per_frame_debug(vdp_context *context)
 		
 		uint32_t pitch;
 		pixel_t *fb = render_get_framebuffer(context->debug_fb_indices[DEBUG_PLANE], &pitch);
-		if (context->type == VDP_GENESIS && (context->regs[REG_MODE_2] & BIT_MODE_5)) {
+		if (context->s32x_vid && context->debug_modes[DEBUG_PLANE] == 4) {
+			s32x_fb_debug(fb, pitch, context->s32x_vid);
+		} else if (context->type == VDP_GENESIS && (context->regs[REG_MODE_2] & BIT_MODE_5)) {
 			if ((context->debug_modes[DEBUG_PLANE] & 3) == 3) {
 				sprite_debug_mode5(fb, pitch, context);
 			} else {
@@ -3051,12 +3056,40 @@ static void advance_output_line(vdp_context *context)
 	//This function is kind of gross because of the need to deal with vertical border busting via mode changes
 	uint16_t lines_max = context->inactive_start + context->border_bot + context->border_top;
 	uint32_t output_line = context->vcounter;
-	if (context->s32x_vid && context->output && output_line < context->inactive_start) {
-		s32x_video_run(context->s32x_vid, context->cycles);
-		s32x_video_composite(context->s32x_vid, context->output + BORDER_LEFT, context->compositebuf + BORDER_LEFT, output_line, (context->regs[REG_MODE_4] & BIT_H40) != 0);
-	}
 	if (!(context->regs[REG_MODE_2] & BIT_MODE_5)) {
 		//vcounter increment occurs much later in Mode 4
+		output_line++;
+	}
+	if (context->s32x_vid && context->output) {
+		//vcounter advances before output line does in Mode 5, so temporarily back it up here
+		output_line--;
+		uint8_t is_h40 = (context->regs[REG_MODE_4] & BIT_H40) != 0;
+		uint8_t did_composite = 0;
+		if (output_line < context->inactive_start) {
+			if (!context->is_threaded_renderer) {
+				s32x_video_run(context->s32x_vid, context->cycles);
+			}
+			did_composite = s32x_video_composite(context->s32x_vid, context->output + BORDER_LEFT + (is_h40 ? 0 : 3), context->compositebuf + BORDER_LEFT + (is_h40 ? 0 : 3), output_line, is_h40);
+		}
+		if (!is_h40 && !did_composite) {
+			pixel_t *output = context->output;
+			pixel_t *dst = output + LINEBUF_SIZE - 1;
+			uint32_t h32_pos = (LINEBUF_SIZE - 1) * 0x40000 / 5;
+			uint32_t h32_dec = 0x40000 / 5;
+			for (; dst >= output; dst--)
+			{
+				uint32_t base_index = h32_pos >> 16;
+				uint32_t mix = h32_pos & 0xFFFF;
+				if (mix < 0x1000) {
+					*dst = output[base_index];
+				} else if (mix > 0xE000) {
+					*dst = output[base_index + 1];
+				} else {
+					*dst = mix_colors(output[base_index], output[base_index + 1], mix);
+				}
+				h32_pos -= h32_dec;
+			}
+		}
 		output_line++;
 	}
 
@@ -3112,7 +3145,7 @@ static void advance_output_line(vdp_context *context)
 		context->output[i] = 0xFFFF00FF;
 	}
 #endif
-	if (context->output && (context->regs[REG_MODE_4] & BIT_H40)) {
+	if ((context->output && (context->regs[REG_MODE_4] & BIT_H40)) || context->s32x_vid) {
 		context->h40_lines++;
 	}
 }
@@ -6784,6 +6817,9 @@ void vdp_inc_debug_mode(vdp_context *context)
 	{
 		if (context->enabled_debuggers & (1 << i) && context->debug_fb_indices[i] == active) {
 			context->debug_modes[i]++;
+			if (i == DEBUG_PLANE && context->s32x_vid) {
+				context->debug_modes[i] %= 5;
+			}
 			return;
 		}
 	}

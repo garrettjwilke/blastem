@@ -6011,7 +6011,11 @@ static uint8_t cmd_breakpoint_sh2(debug_root *root, parsed_command *cmd)
 	bp_def *new_bp = calloc(1, sizeof(bp_def));
 	new_bp->next = root->breakpoints;
 	new_bp->address = address;
-	new_bp->mask = 0x7FFFFFF;
+	if (address < 0x28000000) {
+		new_bp->mask = 0x7FFFFFF;
+	} else {
+		new_bp->mask = 0xFFFFFFFF;
+	}
 	new_bp->index = root->bp_index++;
 	new_bp->type = BP_TYPE_CPU;
 	root->breakpoints = new_bp;
@@ -6053,8 +6057,10 @@ static uint8_t cmd_step_sh2(debug_root *root, parsed_command *cmd)
 	case SH2_BSR:
 		after += 2 + inst->immed;
 		break;
-	//TODO: SH2_BRAF
-	//TODO: SH2_BSRF
+	case SH2_BRAF:
+	case SH2_BSRF:
+		after += 2 + sh2->gpr[inst->src - SH2_IND_R0];
+		break;
 	case SH2_JMP:
 	case SH2_JSR:
 		after = sh2->gpr[inst->src - SH2_IND_R0];
@@ -6092,10 +6098,12 @@ static uint8_t cmd_next_sh2(debug_root *root, parsed_command *cmd)
 		break;
 	case SH2_BSR:
 	case SH2_JSR:
+	case SH2_BSRF:
 		after += 2; //skip over delay slot for now
 		break;
-	//TODO: SH2_BRAF
-	//TODO: SH2_BSRF
+	case SH2_BRAF:
+		after += 2 + sh2->gpr[inst->src - SH2_IND_R0];
+		break;
 	case SH2_JMP:
 		after = sh2->gpr[inst->src - SH2_IND_R0];
 		break;
@@ -6150,10 +6158,12 @@ static uint8_t cmd_over_sh2(debug_root *root, parsed_command *cmd)
 		break;
 	case SH2_BSR:
 	case SH2_JSR:
+	case SH2_BSRF:
 		after += 2; //skip over delay slot for now
 		break;
-	//TODO: SH2_BRAF
-	//TODO: SH2_BSRF
+	case SH2_BRAF:
+		after += 2 + sh2->gpr[inst->src = SH2_IND_R0];
+		break;
 	case SH2_JMP:
 		after = sh2->gpr[inst->src = SH2_IND_R0];
 		break;
@@ -6310,14 +6320,13 @@ static uint8_t read_sh2(debug_root *root, uint32_t *out, char size)
 	switch (size)
 	{
 	case 'b':
-		*out = read_byte(address, (void **)sh2->mem_pointers, &sh2->opts->gen, sh2);
+		*out = sh2->read8[address >> 29](address, sh2);
 		break;
 	case 'w':
-		*out = read_word(address, (void **)sh2->mem_pointers, &sh2->opts->gen, sh2);
+		*out = sh2->read16[address >> 29](address, sh2);
 		break;
 	case 'l':
-		*out = read_word(address, (void **)sh2->mem_pointers, &sh2->opts->gen, sh2) << 16;
-		*out |= read_word(address | 2, (void **)sh2->mem_pointers, &sh2->opts->gen, sh2);
+		*out = sh2->read32[address >> 29](address, sh2);
 		break;
 	}
 	return 1;
@@ -6329,14 +6338,13 @@ static uint8_t write_sh2(debug_root *root, uint32_t address, uint32_t value, cha
 	switch (size)
 	{
 	case 'b':
-		write_byte(address, value, (void **)sh2->mem_pointers, &sh2->opts->gen, sh2);
+		sh2->write8[address >> 29](address, sh2, value);
 		break;
 	case 'w':
-		write_word(address, value, (void **)sh2->mem_pointers, &sh2->opts->gen, sh2);
+		sh2->write16[address >> 29](address, sh2, value);
 		break;
 	case 'l':
-		write_word(address, value, (void **)sh2->mem_pointers, &sh2->opts->gen, sh2);
-		write_word(address | 2, value, (void **)sh2->mem_pointers, &sh2->opts->gen, sh2);
+		sh2->write32[address >> 29](address, sh2, value);
 		break;
 	}
 	return 1;

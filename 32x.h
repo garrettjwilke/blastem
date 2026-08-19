@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "sh2.h"
 #include "32x_video.h"
+#include "oscilloscope.h"
 #include "render_audio.h"
 
 enum {
@@ -53,6 +54,7 @@ enum {
 #define BIT_ADEN_SH2    0x0200
 #define BIT_MAIN_INT    0x0001
 #define BIT_SUB_INT     0x0002
+#define BIT_INTMASK_HEN 0x0080
 #define BIT_VERT_INT_EN 0x0008
 #define BIT_HORZ_INT_EN 0x0004
 #define BIT_CMD_INT_EN  0x0002
@@ -61,6 +63,7 @@ enum {
 #define BIT_DREQ_FULL   0x0080
 #define BIT_DREQ_68S    0x0004
 #define BIT_DREQ_RV     0x0001
+#define BIT_PWM_RTP     0x0080
 #define BIT_PWM_FULL    0x8000
 #define BIT_PWM_EMPTY   0x4000
 #define S32X_BANK_MASK  0x0003
@@ -74,18 +77,22 @@ typedef struct {
 } pwm_fifo;
 
 void pwm_fifo_write(pwm_fifo *fifo, uint16_t *status, uint16_t value);
-void pwm_fifo_read(pwm_fifo *fifo, uint16_t *status, uint16_t *out);
+void pwm_fifo_read(pwm_fifo *fifo, uint16_t *status, uint16_t cycle, int16_t *out);
 
 typedef struct {
 	void         *gen;
 	sh2_context  *main;
 	sh2_context  *sub;
+	sh2_context  *main_tmp;
+	sh2_context  *sub_tmp;
 	uint16_t     *sdram;
 	uint16_t     *rom;
 	uint16_t     *vector_rom;
 	audio_source *pwm;
+	oscilloscope *scope;
 	s32x_video   video;
 	uint32_t     pwm_cycle;
+	uint32_t     cur_sh2_target;
 	uint16_t     regs[S32X_NUM_REGS];
 	uint16_t     sh2_regs[S32X_SH2_SUB_INT+1];
 	uint16_t     dreq_fifo[8];
@@ -93,19 +100,28 @@ typedef struct {
 	pwm_fifo     fifo_right;
 	int16_t      pwm_left;
 	int16_t      pwm_right;
+	int16_t      pwm_left_accum;
+	int16_t      pwm_right_accum;
 	uint16_t     pwm_counter;
+	uint8_t      pwm_decimate;
 	uint8_t      pwm_timer;
 	uint8_t      pwm_main_int_pending;
 	uint8_t      pwm_sub_int_pending;
+	uint8_t      scope_left;
+	uint8_t      scope_right;
 	uint8_t      dreq_fifo_write;
 	uint8_t      dreq_fifo_read;
 	uint8_t      main_enter_debugger;
 	uint8_t      sub_enter_debugger;
+	uint8_t      saved_sh2_state;
 } s32x;
 
 s32x *alloc_32x(system_media *media, uint8_t pal, uint8_t cd_boot);
+void free_32x(s32x *mars);
 void s32x_run(s32x *mars, uint32_t target);
 void s32x_adjust_cycles(s32x *mars, uint32_t deduction);
+void s32x_enable_scope(s32x *mars, oscilloscope *scope, uint32_t main_clock);
+void s32x_set_speed(s32x *mars, uint32_t main_clock);
 uint16_t s32x_68k_read(uint32_t address, void *vcontext);
 void *s32x_68k_write(uint32_t address, void *vcontext, uint16_t value);
 uint8_t s32x_68k_read_b(uint32_t address, void *vcontext);

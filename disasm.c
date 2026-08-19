@@ -318,8 +318,8 @@ void add_segacd_subcpu_labels(disasm_context *context)
 	weak_label(context, "_traceAddress", 0x5F66);
 	weak_label(context, "_nocod0", 0x5F6A);
 	weak_label(context, "_nocod0Address", 0x5F6C);
-	weak_label(context, "_nocod0", 0x5F70);
-	weak_label(context, "_nocod0Address", 0x5F72);
+	weak_label(context, "_nocod1", 0x5F70);
+	weak_label(context, "_nocod1Address", 0x5F72);
 	weak_label(context, "_slevel1", 0x5F76);
 	weak_label(context, "_slevel1Address", 0x5F78);
 	weak_label(context, "_slevel2", 0x5F7C);
@@ -529,10 +529,18 @@ void process_sh2_vectors(disasm_context *context, uint16_t *table, const char *p
 		def->is_pointer = 1;
 	}
 
-	char int_name[] = "irl_0";
-	for (int i = 0; i < 15; i++)
+	char int_name[] = "irl_1_0";
+	for (int i = 0; i < 8; i++)
 	{
-		int_name[4] = i < 0x9 ? '1' + i : 'a' + i - 0x9;
+		if (i) {
+			int num = i * 2;
+			int_name[4] = num < 0xA ? '0' + num : 'A' + num - 0xA;
+			int_name[5] = '_';
+			num++;
+			int_name[6] = num < 0xA ? '0' + num : 'A' + num - 0xA;
+		} else {
+			int_name[5] = 0;
+		}
 		address = table[i*2+128] << 16 | table[i*2 + 129];
 		prefixed_label(context, prefix, int_name, address);
 		if (!labels_only) {
@@ -542,7 +550,7 @@ void process_sh2_vectors(disasm_context *context, uint16_t *table, const char *p
 	if (!labels_only) {
 		visit(context, offset + 0x100);
 		label_def *def = reference(context, offset + 0x100);
-		def->data_count = 15;
+		def->data_count = 8;
 		def->data_size = 4;
 		def->is_pointer = 1;
 	}

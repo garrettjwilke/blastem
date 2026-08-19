@@ -13,17 +13,20 @@ declare
 	typedef void (sh2_fun)(sh2_context *sh2);
 	void init_sh2_opts(sh2_options *opts, const memmap_chunk *chunks, uint32_t num_chunks);
 	sh2_context *init_sh2_context(sh2_options *opts, sh2_fun *next_int);
+	void sh2_free(sh2_context *sh2);
 	void sh2_assert_reset(sh2_context *sh2);
 	void sh2_clear_reset(sh2_context *sh2);
+	void sh2_set_cache_enabled(sh2_context *sh2, uint8_t enabled);
 	void sh2_run(sh2_context *sh2, uint32_t target_cycle);
 	void sh2_insert_breakpoint(sh2_context *sh2, uint32_t address, sh2_fun *handler);
 	void sh2_remove_breakpoint(sh2_context *sh2, uint32_t address);
-	typedef void (sh2_periph_write32)(uint32_t address, sh2_context *sh2, uint32_t value);
-	typedef void (sh2_periph_write16)(uint32_t address, sh2_context *sh2, uint16_t value);
-	typedef void (sh2_periph_write8)(uint32_t address, sh2_context *sh2, uint8_t value);
-	typedef uint32_t (sh2_periph_read32)(uint32_t address, sh2_context *sh2);
-	typedef uint16_t (sh2_periph_read16)(uint32_t address, sh2_context *sh2);
-	typedef uint8_t (sh2_periph_read8)(uint32_t address, sh2_context *sh2);
+	typedef void (sh2_write32)(uint32_t address, sh2_context *sh2, uint32_t value);
+	typedef void (sh2_write16)(uint32_t address, sh2_context *sh2, uint16_t value);
+	typedef void (sh2_write8)(uint32_t address, sh2_context *sh2, uint8_t value);
+	typedef uint32_t (sh2_read32)(uint32_t address, sh2_context *sh2);
+	typedef uint16_t (sh2_read16)(uint32_t address, sh2_context *sh2);
+	typedef uint8_t (sh2_read8)(uint32_t address, sh2_context *sh2);
+	typedef void (sh2_burst_read)(uint32_t address, sh2_context *sh2, uint32_t *dst);
 	
 regs
 	gpr 32 r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15
@@ -38,6 +41,7 @@ regs
 	scratch2 32
 	int_cycle 32
 	int_vector 32
+	current_way_off 32
 	prefetch_cur 16
 	prefetch_next 16
 	prefetch_full 8
@@ -50,19 +54,27 @@ regs
 	reset 8
 	need_reset 8
 	sleeping 8
+	cache_enabled 8
+	cache_od 8
+	cache_id 8
+	cache_tw 8
 	system ptrvoid
 	periph_state ptrvoid
-	periph_write32 ptrsh2_periph_write32
-	periph_write16 ptrsh2_periph_write16
-	periph_write8 ptrsh2_periph_write8
-	periph_read32 ptrsh2_periph_read32
-	periph_read16 ptrsh2_periph_read16
-	periph_read8 ptrsh2_periph_read8
+	read32 ptrsh2_read32 8
+	read16 ptrsh2_read16 8
+	read8 ptrsh2_read8 8
+	write32 ptrsh2_write32 8
+	write16 ptrsh2_write16 8
+	write8 ptrsh2_write8 8
 	periph_reset ptrsh2_fun
-	periph_run   ptrsh2_fun
+	periph_run ptrsh2_fun
+	int_ack ptrsh2_fun
 	calc_next_interrupt ptrsh2_fun
+	burst_read ptrsh2_burst_read
 	mem_pointers ptr8 4
 	cache 32 1024
+	cache_address 32 256
+	cache_lru 32 64
 	peripherals 8 512
 	delay_slot 8
 	main 8
@@ -72,75 +84,42 @@ flags
 	V 0 overflow t
 	C 0 carry t
 
+x64_interp
+	context rsi
+	cycles rax
+	limit rbp
+	scratch1 rcx
+	scratch2 rdi
+	pc rbx
+	r0 rdx
+	r1 r9
+	r2 r10
+	r4 r12
+	r5 r13
+	r6 r14
+	r15 r15
+	temp r11 r8
+
 sh2_read32
 	arg addr 32
-	if addr >=U 0xC0000000
-		if addr >=U 0xC0001000
-			scratch1 = addr
-			ocall read_32
-		else
-			scratch1 = addr >> 2
-			scratch1 &= 0x3FF
-			scratch1 = cache.scratch1
-		end
-	else
-		#TODO: cache
-		scratch1 = addr
-		ocall read_32
-	end
+	local tmp 32
+	tmp = addr >> 29
+	retreg scratch1
+	ocall read32.tmp addr
 
 sh2_read16
 	arg addr 32
 	local tmp 32
-	if addr >=U 0xC0000000
-		if addr >=U 0xC0001000
-			scratch1 = addr
-			ocall read_16
-		else
-			tmp = addr & 2
-			scratch1 = addr >> 2
-			scratch1 &= 0x3FF
-			if tmp
-				scratch1 = cache.scratch1 & 0xFFFF
-			else
-				scratch1 = cache.scratch1 >> 16
-			end
-		end
-	else
-		#TODO: cache
-		scratch1 = addr
-		ocall read_16
-	end
+	tmp = addr >> 29
+	retreg scratch1
+	ocall read16.tmp addr
 
 sh2_read8
 	arg addr 32
 	local tmp 32
-	local tmp2 32
-	if addr >=U 0xC0000000
-		if addr >=U 0xC0001000
-			scratch1 = addr
-			ocall read_8
-		else
-			tmp = addr & 2
-			tmp2 = addr & 1
-			scratch1 = addr >> 2
-			scratch1 &= 0x3FF
-			if tmp
-				scratch1 = cache.scratch1 & 0xFFFF
-			else
-				scratch1 = cache.scratch1 >> 16
-			end
-			if tmp2
-				scratch1 &= 0xFF
-			else
-				scratch1 >>= 8
-			end
-		end
-	else
-		#TODO: cache
-		scratch1 = addr
-		ocall read_8
-	end
+	tmp = addr >> 29
+	retreg scratch1
+	ocall read8.tmp addr
 
 sh2_read32_data
 	arg addr 32
@@ -161,89 +140,25 @@ sh2_write8
 	arg addr 32
 	arg value 8
 	local tmp 32
+	tmp = addr >> 29
+	ocall write8.tmp addr value
 	did_mem = 1
-	if addr >=U 0xC0000000
-		if addr >=U 0xC0001000
-			scratch2 = addr
-			scratch1 = value
-			ocall write_8
-		else
-			tmp = addr & 3
-			scratch2 = addr >> 2
-			scratch2 &= 0x3FF
-			switch tmp
-			case 0
-				cache.scratch2 &= 0x00FFFFFF
-				tmp = value << 24
-			case 1
-				cache.scratch2 &= 0xFF00FFFF
-				tmp = value << 16
-				tmp &= 0x00FF0000
-			case 2
-				cache.scratch2 &= 0xFFFF00FF
-				tmp = value << 8
-				tmp &= 0x0000FF00
-			case 3
-				cache.scratch2 &= 0xFFFFFF00
-				tmp = value & 0x000000FF
-			end
-			cache.scratch2 |= tmp
-		end
-	else
-		scratch2 = addr
-		scratch1 = value
-		ocall write_8
-	end
 
 sh2_write16
 	arg addr 32
-	arg value 16
+	arg value 8
 	local tmp 32
+	tmp = addr >> 29
+	ocall write16.tmp addr value
 	did_mem = 1
-	if addr >=U 0xC0000000
-		if addr >=U 0xC0001000
-			scratch2 = addr
-			scratch1 = value
-			ocall write_16
-		else
-			tmp = addr & 2
-			scratch2 = addr >> 2
-			scratch2 &= 0x3FF
-			if tmp
-				cache.scratch2 &= 0xFFFF0000
-				tmp = value & 0xFFFF
-			else
-				cache.scratch2 &= 0x0000FFFF
-				tmp = value << 16
-			end
-			cache.scratch2 |= tmp
-		end
-	else
-		scratch2 = addr
-		scratch1 = value
-		ocall write_16
-	end
 
 sh2_write32
 	arg addr 32
-	arg value 32
+	arg value 8
 	local tmp 32
+	tmp = addr >> 29
+	ocall write32.tmp addr value
 	did_mem = 1
-	if addr >=U 0xC0000000
-		if addr >=U 0xC0001000
-			scratch2 = addr
-			scratch1 = value
-			ocall write_32
-		else
-			scratch2 = addr >> 2
-			scratch2 &= 0x3FF
-			cache.scratch2 = value
-		end
-	else
-		scratch2 = addr
-		scratch1 = value
-		ocall write_32
-	end
 
 sh2_vector_read
 	arg vector 32
@@ -311,10 +226,10 @@ sh2_collect_sr
 		sr |= 2
 	end
 	if q
-		sr |= 0x10
+		sr |= 0x100
 	end
 	if m
-		sr |= 0x20
+		sr |= 0x200
 	end
 	
 sh2_reset
@@ -399,20 +314,23 @@ sh2_reset
 
 0010NNNNMMMM0100 store_predec_rm_rn_b
 	cycles 1
+	scratch2 = gpr.N - 1
+	sh2_write8 scratch2 gpr.M
 	gpr.N -= 1
-	sh2_write8 gpr.N gpr.M
 	sh2_fetch
 
 0010NNNNMMMM0101 store_predec_rm_rn_w
 	cycles 1
+	scratch2 = gpr.N - 2
+	sh2_write16 scratch2 gpr.M
 	gpr.N -= 2
-	sh2_write16 gpr.N gpr.M
 	sh2_fetch
 
 0010NNNNMMMM0110 store_predec_rm_rn_l
 	cycles 1
+	scratch2 = gpr.N - 4
+	sh2_write32 scratch2 gpr.M
 	gpr.N -= 4
-	sh2_write32 gpr.N gpr.M
 	sh2_fetch
 
 0110NNNNMMMM0100 load_postinc_rm_rn_b
@@ -420,21 +338,27 @@ sh2_reset
 	sh2_read8_data gpr.M
 	scratch1 = sext 16 scratch1
 	gpr.N = sext 32 scratch1
-	gpr.M += 1
+	if M != N
+		gpr.M += 1
+	end
 	sh2_fetch
 
 0110NNNNMMMM0101 load_postinc_rm_rn_w
 	cycles 1
 	sh2_read16_data gpr.M
 	gpr.N = sext 32 scratch1
-	gpr.M += 2
+	if M != N
+		gpr.M += 2
+	end
 	sh2_fetch
 
 0110NNNNMMMM0110 load_postinc_rm_rn_l
 	cycles 1
 	sh2_read32_data gpr.M
 	gpr.N = scratch1
-	gpr.M += 4
+	if M != N
+		gpr.M += 4
+	end
 	sh2_fetch
 
 10000000NNNNDDDD store_r0_disp_rn_b
@@ -582,6 +506,8 @@ sh2_reset
 
 0000NNNN00101001 movt
 	cycles 1
+	t = !t
+	t = !t
 	gpr.N = t
 	sh2_fetch
 
@@ -825,7 +751,7 @@ sh2_reset
 	tmp1 = scratch1
 	sh2_read32_data gpr.M
 	gpr.M += 4
-	tmp1 *= scratch1
+	tmp1 = tmp1 *S scratch1
 	tmp2 = mach << 32
 	tmp2 |= macl
 	tmp1 += tmp2
@@ -833,7 +759,7 @@ sh2_reset
 		if tmp1 >=S 0x800000000000
 			tmp1 = 0x7FFFFFFFFFFF
 		else
-			if tmp1 >=U 0xFFFF800000000001
+			if -0x800000000001 >=S tmp1
 				tmp1 = 0xFFFF800000000000
 			end
 		end
@@ -848,29 +774,34 @@ sh2_reset
 	local tmpn 32
 	local tmpm 32
 	cycles 3 # manual says 3/(2 to 4)
-	sh2_read32_data gpr.N
+	sh2_read16_data gpr.N
 	gpr.N += 2
-	tmpn = sext 16 scratch1
-	sh2_read32_data gpr.M
+	tmpn = sext 32 scratch1
+	sh2_read16_data gpr.M
 	gpr.M += 2
-	tmpm = sext 16 scratch1
-	tmp1 = tmpn * tmpm
-	tmp2 = mach << 32
-	tmp2 |= macl
-	tmp1 += tmp2
+	tmpm = sext 32 scratch1
+	tmp1 = tmpn *S tmpm
 	if s
+		tmp2 = sext 64 macl
+		tmp1 += tmp2
 		if tmp1 >=S 0x80000000
-			tmp1 = 0x17FFFFFFF
+			tmp1 = 0x7FFFFFFF
+			mach |= 1
 		else
-			if tmp1 >=U 0xFFFFFFFF80000001
-				tmp1 = 0x180000000
+			if -0x80000001 >=S tmp1
+				tmp1 = 0x80000000
+				mach |= 1
 			else
 				tmp1 &= 0xFFFFFFFF
 			end
 		end
+	else
+		tmp2 = mach << 32
+		tmp2 |= macl
+		tmp1 += tmp2
+		mach = tmp1 >> 32
 	end
 	macl = tmp1
-	mach = tmp1 >> 32
 	sh2_fetch
 
 0000NNNNMMMM0111 mul_l
@@ -979,7 +910,13 @@ sh2_reset
 
 0100NNNN00011011 tas
 	cycles 1
-	sh2_read8_data gpr.N
+	if 0x20000000 >=U gpr.N
+		#TAS reads are always treated as cache-through
+		scratch1 = gpr.N | 0x20000000
+	else
+		scratch1 = gpr.N
+	end
+	sh2_read8_data scratch1
 	cycles 3
 	t = !scratch1
 	scratch1 |= 0x80
@@ -1245,17 +1182,21 @@ sh2_reset
 	cycles 1
 	sr = gpr.M & 0x3F3
 	sh2_disperse_sr
+	update_sync
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00011110 ldc_rm_gbr
 	cycles 1
 	gbr = gpr.M
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00101110 ldc_rm_vbr
 	cycles 1
 	vbr = gpr.M
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00000111 ldc_rm_postinc_sr
 	cycles 1
@@ -1264,7 +1205,9 @@ sh2_reset
 	sr = scratch1 & 0x3F3
 	gpr.M += 4
 	sh2_disperse_sr
+	update_sync
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00010111 ldc_rm_postinc_gbr
 	cycles 1
@@ -1273,6 +1216,7 @@ sh2_reset
 	gbr = scratch1
 	gpr.M += 4
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00100111 ldc_rm_postinc_vbr
 	cycles 1
@@ -1281,21 +1225,25 @@ sh2_reset
 	vbr = scratch1
 	gpr.M += 4
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00001010 lds_mach
 	cycles 1
 	mach = gpr.M
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00011010 lds_macl
 	cycles 1
 	macl = gpr.M
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00101010 lds_pr
 	cycles 1
 	pr = gpr.M
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00000110 lds_rm_postinc_mach
 	cycles 1
@@ -1303,6 +1251,7 @@ sh2_reset
 	mach = scratch1
 	gpr.M += 4
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00010110 lds_rm_postinc_macl
 	cycles 1
@@ -1310,6 +1259,7 @@ sh2_reset
 	macl = scratch1
 	gpr.M += 4
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100MMMM00100110 lds_rm_postinc_pr
 	cycles 1
@@ -1317,6 +1267,7 @@ sh2_reset
 	pr = scratch1
 	gpr.M += 4
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0000000000001001 nop
 	cycles 1
@@ -1332,68 +1283,86 @@ sh2_reset
 	sh2_collect_sr
 	gpr.N = sr
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0000NNNN00010010 stc_gbr_rn
 	cycles 1
 	gpr.N = gbr
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0000NNNN00100010 stc_vbr_rn
 	cycles 1
 	gpr.N = vbr
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100NNNN00000011 stc_sr_rn_predec
 	cycles 2
-	gpr.N -= 4
 	sh2_collect_sr
-	sh2_write32 gpr.N sr
+	scratch2 = gpr.N - 4
+	sh2_write32 scratch2 sr
+	gpr.N -= 4
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100NNNN00010011 stc_gbr_rn_predec
 	cycles 2
+	scratch2 = gpr.N - 4
+	sh2_write32 scratch2 gbr
 	gpr.N -= 4
-	sh2_write32 gpr.N gbr
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100NNNN00100011 stc_vbr_rn_predec
 	cycles 2
+	scratch2 = gpr.N - 4
+	sh2_write32 scratch2 vbr
 	gpr.N -= 4
-	sh2_write32 gpr.N vbr
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0000NNNN00001010 sts_mach_rn
 	cycles 1
 	gpr.N = mach
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0000NNNN00011010 sts_macl_rn
 	cycles 1
 	gpr.N = macl
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0000NNNN00101010 sts_pr_rn
 	cycles 1
 	gpr.N = pr
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100NNNN00000010 sts_mach_rn_predec
 	cycles 1
+	scratch2 = gpr.N - 4
+	sh2_write32 scratch2 mach
 	gpr.N -= 4
-	sh2_write32 gpr.N mach
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100NNNN00010010 sts_macl_rn_predec
 	cycles 1
+	scratch2 = gpr.N - 4
+	sh2_write32 scratch2 macl
 	gpr.N -= 4
-	sh2_write32 gpr.N macl
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0100NNNN00100010 sts_pr_rn_predec
 	cycles 1
+	scratch2 = gpr.N - 4
+	sh2_write32 scratch2 pr
 	gpr.N -= 4
-	sh2_write32 gpr.N pr
 	sh2_fetch
+	delay_slot = 1 #not actually a delay slot, but no interrupts accepted
 
 0000000000101011 rte
 	cycles 1
@@ -1406,6 +1375,7 @@ sh2_reset
 	sh2_read32_data r15
 	sr = scratch1 & 0x3F3
 	sh2_disperse_sr
+	update_sync
 	r15 += 4
 	cycles 1
 
@@ -1417,10 +1387,10 @@ sh2_reset
 	sh2_write32 r15 sr
 	cycles 2
 	r15 -= 4
-	scratch1 = pc - 2
+	scratch1 = pc + 2
 	sh2_write32 r15 scratch1
 	sh2_vector_read I
-	pc = scratch1 + 4
+	pc = scratch1 - 2
 	cycles 3
 	prefetch_full = 0
 	sh2_fetch
@@ -1439,6 +1409,9 @@ sh2_interrupt
 		#interrupts not accepted here
 	else
 		if cycles >=U int_cycle
+			if int_ack
+				ocall int_ack
+			end
 			cycles 1
 			r15 -= 4
 			sh2_collect_sr

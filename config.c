@@ -319,7 +319,7 @@ static void update_pad_menu_binding(char *key, tern_val val, uint8_t valtype, vo
 	*pads = tern_insert_node(*pads, key, val.ptrval);
 }
 
-#define CONFIG_VERSION 12
+#define CONFIG_VERSION 13
 static tern_node *migrate_config(tern_node *config, int from_version)
 {
 	tern_node *def_config = parse_bundled_config("default.cfg");
@@ -482,7 +482,6 @@ static tern_node *migrate_config(tern_node *config, int from_version)
 		}
 		free(exts[0]);//All extensions in this list share an allocation, first one is a pointer to the buffer
 		free(exts);
-		break;
 	}
 	case 9: {
 		//Add pre-SMS 8-bit image formats to ui.extensions
@@ -518,7 +517,6 @@ static tern_node *migrate_config(tern_node *config, int from_version)
 		}
 		char *combined = alloc_join(new_size, (char const **)ext_list, ' ');
 		config = tern_insert_path(config, "ui\0extensions\0", (tern_val){.ptrval = combined}, TVAL_PTR);
-		break;
 	}
 	case 10: {
 		//Add default bindings for cassette actions
@@ -534,7 +532,6 @@ static tern_node *migrate_config(tern_node *config, int from_version)
 		if (!bind) {
 			config = tern_insert_path(config, "bindings\0keys\0f4\0", (tern_val){.ptrval = strdup("cassette.rewind")}, TVAL_PTR);
 		}
-		break;
 	}
 	case 11: {
 		//Add default bindings for pause and frame advance
@@ -546,7 +543,42 @@ static tern_node *migrate_config(tern_node *config, int from_version)
 		if (!bind) {
 			config = tern_insert_path(config, "bindings\0keys\0f8\0", (tern_val){.ptrval = strdup("ui.advance")}, TVAL_PTR);
 		}
-		break;
+	}
+	case 12: {
+		uint32_t num_exts;
+		char **exts = get_extension_list(config, &num_exts);
+		char *need_add[] = {"32x"};
+		uint32_t num_need_add = sizeof(need_add)/sizeof(*need_add);
+		for (uint32_t i = 0; i < num_exts && num_need_add; i++)
+		{
+			for (uint32_t j = 0; j < num_need_add; j++)
+			{
+				if (!strcmp(exts[i], need_add[j])) {
+					num_need_add--;
+					need_add[j] = need_add[num_need_add];
+					break;
+				}
+			}
+		}
+		if (num_need_add) {
+			const char **parts = calloc(2 * (num_exts + num_need_add) - 1, sizeof(char*));
+			uint32_t dest = 0;
+			for (uint32_t i = 0; i < num_exts; i++)
+			{
+				parts[dest++] = exts[i];
+				parts[dest++] = " ";
+			}
+			for (uint32_t i = 0; i < num_need_add - 1; i++)
+			{
+				parts[dest++] = need_add[i];
+				parts[dest++] = " ";
+			}
+			parts[dest++] = need_add[num_need_add - 1];
+			config = tern_insert_path(config, "ui\0extensions\0", (tern_val){.ptrval = alloc_concat_m(dest, parts)}, TVAL_PTR);
+			free(parts);
+		}
+		free(exts[0]);//All extensions in this list share an allocation, first one is a pointer to the buffer
+		free(exts);
 	}
 	}
 	char buffer[16];

@@ -271,7 +271,10 @@ void add_memmap_header(rom_info *info, uint8_t *rom, uint32_t size, memmap_chunk
 	uint8_t is_med_ssf = size >= 0x108 && !memcmp("SEGA SSF", rom + 0x100, 8);
 	if (is_med_ssf || (size > 0x400000 && rom_end_raw <= 0x400000)) {
 		if (is_med_ssf && rom_end < 16*1024*1024) {
-			info->rom = rom = realloc(rom, 16*1024*1024);
+			info->rom = aligned_calloc(1, 16*1024*1024, 16);
+			memcpy(info->rom, rom, rom_end);
+			aligned_free(rom);
+			rom = info->rom;
 		}
 		info->mapper_start_index = 0;
 		info->mapper_type = is_med_ssf ? MAPPER_SEGA_MED_V2 : MAPPER_SEGA;
@@ -474,20 +477,97 @@ void add_memmap_header(rom_info *info, uint8_t *rom, uint32_t size, memmap_chunk
 
 void add_memmap_header_32x(rom_info *info, uint8_t *rom, uint32_t size, memmap_chunk const *base_map, int base_chunks)
 {
-	uint32_t rom_end = get_u32be(rom + ROM_END) + 1;
-	uint32_t rom_end_raw = rom_end;
-	if (size > rom_end) {
-		rom_end = size;
-	} else if (rom_end > nearest_pow2(size)) {
-		rom_end = nearest_pow2(size);
-	}
+	uint32_t rom_end = nearest_pow2(size);
 	info->save_type = SAVE_NONE;
 	//TODO: deal with heuristics detectable mappers besides the basic Sega SRAM one
 	if (has_ram_header(rom, size)) {
 		uint32_t ram_start = read_ram_header(info, rom);
-
-		//TODO: handle ram_start on a non-1MB boundary
-		if (info->save_buffer && !(ram_start & 0xFFFFF)) {
+		if (info->save_size == 1 && rom_end > 0x200000) {
+			if (size < 0x400000) {
+				uint32_t mirror_size = nearest_pow2(size - 0x200000);
+				for (uint32_t dst = 0x200000 + mirror_size; dst < rom_end; dst += mirror_size)
+				{
+					memcpy(rom + dst, rom + 0x200000, dst + mirror_size <= rom_end ? mirror_size : rom_end-dst);
+				}
+			}
+			//assume Acclaim mapper with 24C02 I2C EEPROM
+			free(info->save_buffer);
+			info->save_size = 256;
+			info->save_buffer = calloc(info->save_size, 1);
+			info->save_type = SAVE_I2C;
+			info->eeprom_map = NULL;
+			//0 -> fixed ROM
+			//1 -> Fixed 32X ROM bank
+			//2 -> Mappable 32X ROM bank
+			//3 -> I2C high
+			//4 -> I2C low
+			//5 -> upper fixed ROM (RV=1 or ADEN=0)
+			//6 -> vector area
+			info->map_chunks = base_chunks + 7;
+			info->map = malloc(sizeof(memmap_chunk) * info->map_chunks);
+			memset(info->map, 0, sizeof(memmap_chunk)*info->map_chunks);
+			memcpy(info->map+7, base_map, sizeof(memmap_chunk) * base_chunks);
+			info->map[0].start = 0x100;
+			info->map[0].end = 0x200000;
+			info->map[0].mask = 0xFFFFFF;
+			info->map[0].flags = MMAP_READ | MMAP_PTR_IDX | MMAP_AUX_BUFF;
+			info->map[0].write_16 = s32x_write_hint;
+			info->map[0].write_8 = s32x_write_hint_b;
+			info->map[0].buffer = rom;
+			info->map[0].aux_mask = 0xFFFFFF;
+			info->map[0].ptr_index = 0;
+			
+			info->map[1].start = 0x880000;
+			info->map[1].end = 0x900000;
+			info->map[1].mask = 0x7FFFF;
+			info->map[1].aux_mask = info->map[1].mask;
+			info->map[1].flags = MMAP_READ | MMAP_PTR_IDX | MMAP_AUX_BUFF;
+			info->map[1].ptr_index = 1;
+			info->map[1].buffer = rom;
+			
+			//strictly speaking this isn't really correct
+			//EEPROM and ROM overlap over the entire >=2M region of the cart
+			info->map[2].start = 0x900002;
+			info->map[2].end = 0xA00000;
+			info->map[2].mask = 0xFFFFF;
+			info->map[2].flags = MMAP_CODE | MMAP_READ | MMAP_PTR_IDX;
+			info->map[2].ptr_index = 2;
+			
+			info->map[3].start = 0x900000;
+			info->map[3].end = 0x900002;
+			info->map[3].mask = 0xFFFFFF;
+			info->map[3].write_16 = s32x_write_eeprom_i2c_w;
+			info->map[3].write_8 = s32x_write_eeprom_i2c_b;
+			info->map[3].read_16 = s32x_read_eeprom_i2c_w;
+			info->map[3].read_8 = s32x_read_eeprom_i2c_b;
+			
+			info->map[4].start = 0x200000;
+			info->map[4].end = 0x200002;
+			info->map[4].mask = 0xFFFFFF;
+			info->map[4].write_16 = s32x_write_eeprom_i2c_low_w;
+			info->map[4].write_8 = s32x_write_eeprom_i2c_low_b;
+			info->map[4].read_16 = s32x_read_eeprom_i2c_low_w;
+			info->map[4].read_8 = s32x_read_eeprom_i2c_low_b;
+			
+			info->map[5].start = 0x200002;
+			info->map[5].end = rom_end;
+			info->map[5].mask = 0x1FFFFF;
+			info->map[5].aux_mask = 0x1FFFFF;
+			info->map[5].flags = MMAP_READ | MMAP_PTR_IDX | MMAP_AUX_BUFF;
+			info->map[5].ptr_index = 3;
+			info->map[5].buffer = rom + 0x200000;
+			
+			info->map[6].start = 0;
+			info->map[6].end = 0x100;
+			info->map[6].mask = 0xFFFFFF;
+			info->map[6].flags = MMAP_CODE | MMAP_READ | MMAP_PTR_IDX;
+			info->map[6].ptr_index = 9;
+			info->map[6].write_16 = s32x_write_hint;
+			info->map[6].write_8 = s32x_write_hint_b;
+			info->map[6].buffer = rom;
+			return;
+		} else if (info->save_buffer && !(ram_start & 0xFFFFF)) {
+			//TODO: handle ram_start on a non-1MB boundary
 			info->map_chunks = base_chunks + (ram_start >= rom_end ? 5 : 6);
 			info->map = malloc(sizeof(memmap_chunk) * info->map_chunks);
 			memset(info->map, 0, sizeof(memmap_chunk)*info->map_chunks);
@@ -497,6 +577,7 @@ void add_memmap_header_32x(rom_info *info, uint8_t *rom, uint32_t size, memmap_c
 				//1 -> Fixed 32X ROM bank
 				//2 -> Mappable 32X ROM bank
 				//3 -> SRAM
+				//4 -> vector area
 				memcpy(info->map+5, base_map, sizeof(memmap_chunk) * base_chunks);
 				info->map[0].end = rom_end < 0x400000 ? nearest_pow2(rom_end) - 1 : 0xFFFFFF;
 				if (info->map[0].end > ram_start) {
@@ -505,10 +586,11 @@ void add_memmap_header_32x(rom_info *info, uint8_t *rom, uint32_t size, memmap_c
 				//TODO: ROM mirroring
 				info->map[0].start = 0x100;
 				info->map[0].mask = 0xFFFFFF;
-				info->map[0].flags = MMAP_READ | MMAP_PTR_IDX;
+				info->map[0].flags = MMAP_READ | MMAP_PTR_IDX | MMAP_AUX_BUFF;
 				info->map[0].write_16 = s32x_write_hint;
 				info->map[0].write_8 = s32x_write_hint_b;
 				info->map[0].buffer = rom;
+				info->map[0].aux_mask = 0xFFFFFF;
 				info->map[0].ptr_index = 0;
 				
 				info->map[1].start = 0x880000;
@@ -568,10 +650,11 @@ void add_memmap_header_32x(rom_info *info, uint8_t *rom, uint32_t size, memmap_c
 				info->map[0].start = 0x100;
 				info->map[0].end = 0x200000;
 				info->map[0].mask = 0xFFFFFF;
-				info->map[0].flags = MMAP_READ | MMAP_PTR_IDX;
+				info->map[0].flags = MMAP_READ | MMAP_PTR_IDX | MMAP_AUX_BUFF;
 				info->map[0].write_16 = s32x_write_hint;
 				info->map[0].write_8 = s32x_write_hint_b;
 				info->map[0].buffer = rom;
+				info->map[0].aux_mask = 0xFFFFFF;
 				info->map[0].ptr_index = 0;
 				
 				info->map[1].start = 0x880000;
@@ -638,10 +721,11 @@ void add_memmap_header_32x(rom_info *info, uint8_t *rom, uint32_t size, memmap_c
 	info->map[0].start = 0x100;
 	info->map[0].end = rom_end;
 	info->map[0].mask = rom_end - 1;
-	info->map[0].flags = MMAP_READ | MMAP_PTR_IDX;
+	info->map[0].flags = MMAP_READ | MMAP_PTR_IDX | MMAP_AUX_BUFF;
 	info->map[0].write_16 = s32x_write_hint;
 	info->map[0].write_8 = s32x_write_hint_b;
 	info->map[0].buffer = rom;
+	info->map[0].aux_mask = info->map[0].mask;
 	info->map[0].ptr_index = 0;
 	
 	info->map[1].start = 0x880000;
@@ -1192,7 +1276,10 @@ void map_iter_fun(char *key, tern_val val, uint8_t valtype, void *data)
 		state->info->mapper_type = MAPPER_MULTI_GAME;
 		state->info->mapper_start_index = state->ptr_index++;
 		//make a mirror copy of the ROM so we can efficiently support arbitrary start offsets
-		state->rom = realloc(state->rom, state->rom_size * 2);
+		uint8_t *orig = state->rom;
+		state->rom = aligned_calloc(1, state->rom_size * 2, 16);
+		memcpy(state->rom, orig, state->rom_size);
+		aligned_free(orig);
 		memcpy(state->rom + state->rom_size, state->rom, state->rom_size);
 		state->rom_size *= 2;
 		//make room for an extra map entry
