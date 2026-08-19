@@ -183,6 +183,7 @@ static void cram_debug_ui(void)
 		static struct nk_scroll scroll;
 		context->style.window.scrollbar_size.y = 0;
 		nk_layout_space_push(context, nk_rect(0, 0, 100, windows[DEBUG_CRAM].tex_height));
+		nk_flags edit_events = 0;
 		if (nk_group_scrolled_begin(context, &scroll, "Entries", 0)) {
 			nk_layout_space_begin(context, NK_STATIC, windows[DEBUG_CRAM].tex_height * 4, INT_MAX);
 			for (int i = 0; i < 64; i++)
@@ -192,7 +193,7 @@ static void cram_debug_ui(void)
 				nk_label(context, buf, NK_TEXT_RIGHT);
 				nk_layout_space_push(context, nk_rect(30, i *32, 50, 32));
 				snprintf(buf, sizeof(buf), "%03X", vdp->cram[i] & 0xEEE);
-				nk_edit_string_zero_terminated(context, NK_EDIT_FIELD, buf, sizeof(buf), nk_filter_hex);
+				edit_events |= nk_edit_string_zero_terminated(context, NK_EDIT_FIELD, buf, sizeof(buf), nk_filter_hex);
 				char *end;
 				long newv = strtol(buf, &end, 16);
 				if (end != buf && newv != vdp->cram[i]) {
@@ -202,7 +203,17 @@ static void cram_debug_ui(void)
 			nk_layout_space_end(context);
 			nk_group_scrolled_end(context);
 		}
-		
+		// these fields are usable while the game runs, where text input is
+		// normally off (see render_init); enable it only while one of them
+		// has focus so a held game key can't trigger the macOS accent popup
+		if (edit_events & (NK_EDIT_ACTIVE | NK_EDIT_ACTIVATED)) {
+			if (!SDL_IsTextInputActive()) {
+				SDL_StartTextInput();
+			}
+		} else if (edit_events & NK_EDIT_DEACTIVATED) {
+			SDL_StopTextInput();
+		}
+
 		nk_end(context);
 	}
 	nk_sdl_render(context, NK_ANTI_ALIASING_ON, 512 * 1024, 128 * 1024);

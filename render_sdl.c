@@ -1486,6 +1486,12 @@ void render_init(int width, int height, char * title, uint8_t fullscreen)
 		fatal_error("Unable to init SDL: %s\n", SDL_GetError());
 	}
 	atexit(SDL_Quit);
+	// SDL implicitly enables text input on desktop platforms. While it is
+	// active, macOS routes held keys through the IME layer, which pops up the
+	// "press and hold" accent picker mid-game and then eats the arrow keys.
+	// Only the UI needs text input; ui_enter()/the CRAM debug window turn it
+	// back on while a text field can actually receive typing.
+	SDL_StopTextInput();
 	if (height <= 0) {
 		float aspect = config_aspect() > 0.0f ? config_aspect() : 4.0f/3.0f;
 		height = ((float)width / aspect) + 0.5f;

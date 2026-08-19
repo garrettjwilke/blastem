@@ -2685,11 +2685,18 @@ void blastem_nuklear_render(void)
 
 void ui_enter(void)
 {
+	if (!SDL_HasScreenKeyboardSupport()) {
+		// enable typed input for settings/search fields; gated so platforms
+		// with an on-screen keyboard (Android) don't pop it on every menu
+		SDL_StartTextInput();
+	}
 	render_enable_gamepad_events(1);
 }
 
 void ui_exit(void)
 {
+	// keep text input off during gameplay (see render_init)
+	SDL_StopTextInput();
 	if (config_dirty) {
 		apply_updated_config();
 		persist_config(config);
