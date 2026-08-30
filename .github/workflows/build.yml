@@ -132,6 +132,9 @@ jobs:
             APP="BlastEm.app"; rm -rf "$APP"
             mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
             cp blastem "$APP/Contents/MacOS/"
+            # termhelper is deliberately NOT bundled: init_terminal() skips the
+            # terminal-spawn path entirely when it is absent, which is what we want
+            # for a Finder-launched .app. See PATCHES.md (init_terminal).
             cp -R shaders images default.cfg rom.db gamecontrollerdb.txt systems.cfg COPYING COPYING.fork "$APP/Contents/MacOS/"
             cp assets/BlastEm.icns "$APP/Contents/Resources/BlastEm.icns"
             cp /tmp/Info.plist "$APP/Contents/Info.plist"
