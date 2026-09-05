@@ -27,7 +27,8 @@ typedef struct {
 	uint32_t accum_mclk;    // MCLK accumulated this frame
 	uint32_t hits;          // completed brackets this frame
 	uint8_t  in_use;
-	uint8_t  active;        // currently inside [start,end)
+	uint8_t  active;        // bracket: currently inside [start,end). lap: a previous pass is held
+	uint8_t  is_lap;        // measure addr->addr intervals instead of [start,end)
 } kit_bracket;
 
 static kit_bracket brackets[KIT_PROF_MAX_BRACKETS];
@@ -145,6 +146,8 @@ static uint32_t kit_ctx_pc(struct m68k_context *c)
 // Single dispatching handler installed at both the start and end address of every bracket.
 // Enter at <start>: snapshot cycles, mark active (re-entry restarts the bracket).
 // Exit  at <end>:   if active, accumulate (cycles - start), bump hits, clear active.
+// A lap has one address: each pass closes the interval opened by the previous pass and opens the
+// next, so its first pass ever produces no hit and every later pass produces exactly one.
 static void kit_prof_handler(void *vcontext, uint32_t pc)
 {
 	struct m68k_context *context = vcontext;
@@ -154,6 +157,17 @@ static void kit_prof_handler(void *vcontext, uint32_t pc)
 	for (uint8_t i = 0; i < num_brackets; i++) {
 		kit_bracket *b = &brackets[i];
 		if (!b->in_use) {
+			continue;
+		}
+		if (b->is_lap) {
+			if (pc == b->start_addr) {
+				if (b->active) {
+					b->accum_mclk += context->cycles - b->start_cycle;
+					b->hits++;
+				}
+				b->start_cycle = context->cycles;
+				b->active = 1;
+			}
 			continue;
 		}
 		if (pc == b->start_addr) {
@@ -176,32 +190,54 @@ void kit_prof_set_context(struct m68k_context *m68k)
 	}
 }
 
-uint8_t kit_prof_add_bracket(const char *name, uint32_t start_addr, uint32_t end_addr)
+static kit_bracket *kit_prof_alloc(const char *name)
 {
 	if (!prof_m68k) {
 		warning("kit_prof: no m68k context (Genesis system) yet; cannot register bracket '%s'\n", name);
-		return 1;
+		return NULL;
 	}
 	if (num_brackets >= KIT_PROF_MAX_BRACKETS) {
 		warning("kit_prof: bracket table full (max %d), ignoring '%s'\n", KIT_PROF_MAX_BRACKETS, name);
-		return 1;
+		return NULL;
 	}
 	for (uint8_t i = 0; i < num_brackets; i++) {
 		if (brackets[i].in_use && !strcmp(brackets[i].name, name)) {
 			warning("kit_prof: duplicate bracket name '%s'\n", name);
-			return 1;
+			return NULL;
 		}
 	}
 	kit_bracket *b = &brackets[num_brackets];
 	memset(b, 0, sizeof(*b));
 	strncpy(b->name, name, KIT_PROF_NAME_LEN - 1);
 	b->name[KIT_PROF_NAME_LEN - 1] = 0;
-	b->start_addr = start_addr;
-	b->end_addr = end_addr;
 	b->in_use = 1;
 	num_brackets++;
+	return b;
+}
+
+uint8_t kit_prof_add_bracket(const char *name, uint32_t start_addr, uint32_t end_addr)
+{
+	kit_bracket *b = kit_prof_alloc(name);
+	if (!b) {
+		return 1;
+	}
+	b->start_addr = start_addr;
+	b->end_addr = end_addr;
 	insert_breakpoint(prof_m68k, start_addr, kit_prof_handler);
 	insert_breakpoint(prof_m68k, end_addr, kit_prof_handler);
+	return 0;
+}
+
+uint8_t kit_prof_add_lap(const char *name, uint32_t addr)
+{
+	kit_bracket *b = kit_prof_alloc(name);
+	if (!b) {
+		return 1;
+	}
+	b->start_addr = addr;
+	b->end_addr = addr;
+	b->is_lap = 1;
+	insert_breakpoint(prof_m68k, addr, kit_prof_handler);
 	return 0;
 }
 
@@ -211,7 +247,9 @@ void kit_prof_clear(void)
 		for (uint8_t i = 0; i < num_brackets; i++) {
 			if (brackets[i].in_use) {
 				remove_breakpoint(prof_m68k, brackets[i].start_addr);
-				remove_breakpoint(prof_m68k, brackets[i].end_addr);
+				if (!brackets[i].is_lap) {
+					remove_breakpoint(prof_m68k, brackets[i].end_addr);
+				}
 			}
 		}
 	}

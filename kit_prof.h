@@ -7,6 +7,9 @@
 //
 //   * PC-bracket cycle profiler: named [start,end) PC brackets registered as breakpoints;
 //     per frame we emit the accumulated 68K cycles and hit count for each bracket.
+//   * PC-lap timer: the same table and the same per-frame line, but measuring the interval
+//     between consecutive passes of ONE address (a main-loop marker), so no second address
+//     has to be recovered from a disassembly.
 //   * per-frame VRAM/CRAM/VSRAM hash: an FNV-1a fingerprint of video memory each frame.
 //
 // Driven over the control socket (see ctrl_fifo.c). No license header, matching the other
@@ -24,6 +27,12 @@ void kit_prof_set_context(struct m68k_context *m68k);
 // Register a named PC bracket. start_addr/end_addr are 68K addresses. Returns 0 on success,
 // nonzero on error (no m68k context yet, duplicate name, or table full).
 uint8_t kit_prof_add_bracket(const char *name, uint32_t start_addr, uint32_t end_addr);
+
+// Register a named PC lap: the 68K cycles between consecutive executions of addr. Reported in the
+// same "KIT PROF" line and the same "<name>=<cycles>:<hits>" shape as a bracket, so hits==0 means
+// the address was not reached during that video frame (a dropped frame for a once-per-loop marker).
+// Shares the bracket table; same error cases and return convention as kit_prof_add_bracket.
+uint8_t kit_prof_add_lap(const char *name, uint32_t addr);
 
 // Remove every bracket (and its breakpoints) and reset per-frame accumulation state.
 void kit_prof_clear(void);

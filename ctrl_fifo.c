@@ -131,11 +131,19 @@ static void process_command(char *line)
 	} else if (!strcmp(cmd, "prof")) {
 		char *sub = strtok(NULL, " \t");
 		if (!sub) {
-			warning("ctrl_sock: expected 'prof <bracket|clear|log> ...'\n");
+			warning("ctrl_sock: expected 'prof <bracket|lap|clear|log> ...'\n");
 			return;
 		}
 		kit_prof_bind_system();
-		if (!strcmp(sub, "bracket")) {
+		if (!strcmp(sub, "lap")) {
+			char *name = strtok(NULL, " \t");
+			char *addr = strtok(NULL, " \t");
+			if (!name || !addr) {
+				warning("ctrl_sock: expected 'prof lap <name> <addr_hex>'\n");
+				return;
+			}
+			kit_prof_add_lap(name, (uint32_t)strtoul(addr, NULL, 16));
+		} else if (!strcmp(sub, "bracket")) {
 			char *name = strtok(NULL, " \t");
 			char *start = strtok(NULL, " \t");
 			char *end = strtok(NULL, " \t");
