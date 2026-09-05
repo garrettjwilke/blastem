@@ -1291,6 +1291,11 @@ void render_update_caption(char *title)
 	fps_caption = NULL;
 }
 
+void render_save_screenshot_burst(char *prefix, uint32_t count)
+{
+	free(prefix);
+}
+
 static char *screenshot_path;
 void render_save_screenshot(char *path)
 {

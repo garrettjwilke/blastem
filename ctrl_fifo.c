@@ -6,6 +6,10 @@
 //   pad <num> down <button>   press a pad button (num matches the gamepad
 //   pad <num> up <button>     number in the io config, normally 1 or 2)
 //   screenshot <path>         save the next rendered frame (.png or .ppm)
+//   burst <count> <prefix>    save <count> CONSECUTIVE frames to <prefix>00000.png, ...
+//                             ("burst 0" cancels). Every frame is captured, unlike a loop of
+//                             screenshot commands, which only samples what the socket
+//                             round-trip happens to land on.
 //   vramdump <path>           dump a binary VRAM/CRAM/VSRAM/regs snapshot at the next frame
 //                             boundary (KITVDMP1 format; see kit_prof.c for the file layout)
 //
@@ -109,6 +113,20 @@ static void process_command(char *line)
 			render_save_screenshot(strdup(path));
 		} else {
 			warning("ctrl_sock: expected 'screenshot <path>'\n");
+		}
+	} else if (!strcmp(cmd, "burst")) {
+		char *count_str = strtok(NULL, " \t");
+		char *prefix = strtok(NULL, "");
+		while (prefix && (*prefix == ' ' || *prefix == '\t')) {
+			prefix++;
+		}
+		long count = count_str ? strtol(count_str, NULL, 10) : 0;
+		if (count > 0 && prefix && *prefix) {
+			render_save_screenshot_burst(strdup(prefix), (uint32_t)count);
+		} else if (count_str && !count) {
+			render_save_screenshot_burst(NULL, 0);
+		} else {
+			warning("ctrl_sock: expected 'burst <count> <prefix>' or 'burst 0'\n");
 		}
 	} else if (!strcmp(cmd, "prof")) {
 		char *sub = strtok(NULL, " \t");

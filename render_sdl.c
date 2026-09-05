@@ -1733,6 +1733,23 @@ void render_update_caption(char *title)
 }
 
 static char *screenshot_path;
+static char *burst_prefix;
+static uint32_t burst_remaining;
+static uint32_t burst_index;
+
+void render_save_screenshot_burst(char *prefix, uint32_t count)
+{
+	free(burst_prefix);
+	if (count) {
+		burst_prefix = prefix;
+	} else {
+		free(prefix);
+		burst_prefix = NULL;
+	}
+	burst_remaining = count;
+	burst_index = 0;
+}
+
 void render_save_screenshot(char *path)
 {
 	if (screenshot_path) {
@@ -2250,6 +2267,15 @@ static void process_framebuffer(pixel_t *buffer, uint8_t which, int width)
 	if (which < FRAMEBUFFER_UI) {
 		last_width = width;
 		width -= overscan_left[video_standard] + overscan_right[video_standard];
+		if (burst_remaining && !screenshot_path && which == FRAMEBUFFER_ODD) {
+			size_t len = strlen(burst_prefix) + 16;
+			screenshot_path = malloc(len);
+			snprintf(screenshot_path, len, "%s%05u.png", burst_prefix, burst_index++);
+			if (!--burst_remaining) {
+				free(burst_prefix);
+				burst_prefix = NULL;
+			}
+		}
 		if (screenshot_path && which == FRAMEBUFFER_ODD) {
 			screenshot_file = fopen(screenshot_path, "wb");
 			if (screenshot_file) {
