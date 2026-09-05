@@ -12,6 +12,7 @@
 #include "event_log.h"
 #include "terminal.h"
 #include "kit_prof.h"
+#include "kit_script.h"
 #ifndef DISABLE_NUKLEAR
 #include "nuklear_ui/debug_ui.h"
 #endif
@@ -2928,6 +2929,7 @@ static void sprite_debug_tms(pixel_t *fb, uint32_t pitch, vdp_context *context)
 void vdp_update_per_frame_debug(vdp_context *context)
 {
 	kit_prof_frame(context);
+	kit_script_frame(context->frame);
 	if (context->enabled_debuggers & (1 << DEBUG_PLANE)) {
 		
 		uint32_t pitch;
@@ -5881,13 +5883,24 @@ void vdp_reg_write(vdp_context *context, uint16_t reg, uint16_t value)
 				context->kmod_msg_buffer[context->kmod_buffer_length - 1] = c;
 			} else if (context->kmod_buffer_length) {
 				context->kmod_msg_buffer[context->kmod_buffer_length] = 0;
+				kit_script_kdebug(context->kmod_msg_buffer, context->frame);
+				char frame_suffix[24];
+				frame_suffix[0] = 0;
+				if (kit_logframes) {
+					// The ROM's message carries its own trailing newline; the tag goes before it.
+					uint32_t len = context->kmod_buffer_length;
+					while (len && (context->kmod_msg_buffer[len - 1] == '\n' || context->kmod_msg_buffer[len - 1] == '\r')) {
+						context->kmod_msg_buffer[--len] = 0;
+					}
+					snprintf(frame_suffix, sizeof(frame_suffix), " @f%u", context->frame);
+				}
 				if (is_stdout_enabled()) {
 					init_terminal();
-					printf("KDEBUG MESSAGE: %s\n", context->kmod_msg_buffer);
+					printf("KDEBUG MESSAGE: %s%s\n", context->kmod_msg_buffer, frame_suffix);
 					fflush(stdout);
 				} else {
 					// GDB remote debugging is enabled, use stderr instead
-					fprintf(stderr, "KDEBUG MESSAGE: %s\n", context->kmod_msg_buffer);
+					fprintf(stderr, "KDEBUG MESSAGE: %s%s\n", context->kmod_msg_buffer, frame_suffix);
 				}
 				context->kmod_buffer_length = 0;
 			}

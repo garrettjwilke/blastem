@@ -2421,7 +2421,7 @@ static void process_framebuffer(pixel_t *buffer, uint8_t which, int width)
 	#ifdef __ANDROID__
 				debug_message("%s - %.1f fps", caption, ((float)frame_counter) / (((float)(last_frame-start)) / 1000.0));
 	#else
-				// +128 headroom for the genesis-kit HUD suffix (" | Game .. fps / CPU ..%")
+				// +128 headroom for the host HUD suffix (" | Game .. fps / CPU ..%")
 				if (!fps_caption) {
 					fps_caption = malloc(strlen(caption) + strlen(" - 100000000.1 fps") + 128);
 				}

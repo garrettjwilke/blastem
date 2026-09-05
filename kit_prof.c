@@ -1,5 +1,5 @@
 // See kit_prof.h. Host-side (zero-ROM-cost) profiling + video-memory hashing for the
-// genesis-kit test harness. Because BlastEm is cycle-deterministic, everything here observes
+// host-side test harness. Because BlastEm is cycle-deterministic, everything here observes
 // emulator state without ever writing it back, so it cannot change emulated results.
 
 #include <stdio.h>
@@ -271,9 +271,9 @@ void kit_prof_set_vramhash(uint8_t on)
 	vramhash_enabled = on ? 1 : 0;
 }
 
-static void kit_emit_line(const char *line)
+void kit_emit_line(const char *line)
 {
-	// Same branch as the KDEBUG output in vdp.c so the genesis-kit log pipeline sees it,
+	// Same branch as the KDEBUG output in vdp.c so the host log pipeline sees it,
 	// and so gdb-remote (pipe) stays clean when stdout messages are disabled.
 	if (is_stdout_enabled()) {
 		init_terminal();

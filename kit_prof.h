@@ -1,7 +1,7 @@
 #ifndef KIT_PROF_H_
 #define KIT_PROF_H_
 
-// genesis-kit host-side observation helpers. These move two kinds of measurement that
+// host-side observation helpers. These move two kinds of measurement that
 // used to cost ROM cycles (getSubTick brackets, per-frame VRAM/CRAM hashing) into the
 // emulator, where they cannot perturb the deterministic emulated timing:
 //
@@ -109,5 +109,8 @@ void kit_watch_check(struct m68k_context *context, uint32_t addr, uint32_t val, 
 // second call before the pending dump is serviced replaces the path (only the latest one fires).
 // Zero cost when never called: kit_prof_frame's pending check is a single null-pointer test.
 void kit_prof_request_vramdump(const char *path);
+
+// Print one "KIT ..." line on the same stream as the KDEBUG output in vdp.c.
+void kit_emit_line(const char *line);
 
 #endif //KIT_PROF_H_

@@ -6,6 +6,11 @@
 //   pad <num> down <button>   press a pad button (num matches the gamepad
 //   pad <num> up <button>     number in the io config, normally 1 or 2)
 //   screenshot <path>         save the next rendered frame (.png or .ppm)
+//   script <path>             load a frame-scripted input file: "<frame> down|up|shot|burst|log"
+//                             lines applied at exact video frames, so a driving sequence and
+//                             its screenshots replay identically run to run (see kit_script.h)
+//   frame                     print "KIT FRAME frame=<N>" for the frame being rendered
+//   logframes on|off          tag KDEBUG MESSAGE lines with the frame they came from
 //   burst <count> <prefix>    save <count> CONSECUTIVE frames to <prefix>00000.png, ...
 //                             ("burst 0" cancels). Every frame is captured, unlike a loop of
 //                             screenshot commands, which only samples what the socket
@@ -32,6 +37,7 @@
 #include "util.h"
 #include "genesis.h"
 #include "kit_prof.h"
+#include "kit_script.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -44,22 +50,6 @@
 
 static int listen_fd = -1;
 static int client_fd = -1;
-
-static uint8_t parse_button(const char *name)
-{
-	static const char *names[NUM_GAMEPAD_BUTTONS] = {
-		[DPAD_UP] = "up", [DPAD_DOWN] = "down", [DPAD_LEFT] = "left", [DPAD_RIGHT] = "right",
-		[BUTTON_A] = "a", [BUTTON_B] = "b", [BUTTON_C] = "c", [BUTTON_START] = "start",
-		[BUTTON_X] = "x", [BUTTON_Y] = "y", [BUTTON_Z] = "z", [BUTTON_MODE] = "mode"
-	};
-	for (uint8_t button = DPAD_UP; button < NUM_GAMEPAD_BUTTONS; button++)
-	{
-		if (!strcmp(names[button], name)) {
-			return button;
-		}
-	}
-	return BUTTON_INVALID;
-}
 
 // Point the profiler at the running Genesis 68K, once. Safe to call before every prof/vramhash
 // command; kit_prof_set_context only latches the first non-null context it is given.
@@ -85,7 +75,7 @@ static void process_command(char *line)
 			warning("ctrl_sock: expected 'pad <num> <down|up> <button>'\n");
 			return;
 		}
-		uint8_t button = parse_button(button_name);
+		uint8_t button = kit_parse_button(button_name);
 		if (button == BUTTON_INVALID) {
 			warning("ctrl_sock: unknown button '%s'\n", button_name);
 			return;
@@ -127,6 +117,24 @@ static void process_command(char *line)
 			render_save_screenshot_burst(NULL, 0);
 		} else {
 			warning("ctrl_sock: expected 'burst <count> <prefix>' or 'burst 0'\n");
+		}
+	} else if (!strcmp(cmd, "script")) {
+		char *path = strtok(NULL, "");
+		while (path && (*path == ' ' || *path == '\t')) {
+			path++;
+		}
+		kit_script_set_capture(render_save_screenshot, render_save_screenshot_burst);
+		kit_script_load(path);
+	} else if (!strcmp(cmd, "frame")) {
+		kit_script_report_frame();
+	} else if (!strcmp(cmd, "logframes")) {
+		char *state = strtok(NULL, " \t");
+		if (state && !strcmp(state, "on")) {
+			kit_script_set_logframes(1);
+		} else if (state && !strcmp(state, "off")) {
+			kit_script_set_logframes(0);
+		} else {
+			warning("ctrl_sock: expected 'logframes <on|off>'\n");
 		}
 	} else if (!strcmp(cmd, "prof")) {
 		char *sub = strtok(NULL, " \t");
