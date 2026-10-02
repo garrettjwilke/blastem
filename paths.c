@@ -13,6 +13,10 @@
 #include <unistd.h>
 #include <errno.h>
 #endif
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#include <limits.h>
+#endif
 #ifdef __ANDROID__
 #include <SDL_system.h>
 #include <jni.h>
@@ -447,41 +451,104 @@ char * get_exe_dir()
 	static char * exe_dir;
 	if (!exe_dir) {
 		char * cur;
-#ifdef HAS_PROC
-		char * linktext = readlink_alloc("/proc/self/exe");
-		if (!linktext) {
-			goto fallback;
-		}
-		int linksize = strlen(linktext);
-		for(cur = linktext + linksize - 1; cur != linktext; cur--)
-		{
-			if (is_path_sep(*cur)) {
-				*cur = 0;
-				break;
+#ifdef __APPLE__
+		uint32_t size = 0;
+		_NSGetExecutablePath(NULL, &size);
+		if (size > 0) {
+			char *execpath = malloc(size);
+			if (_NSGetExecutablePath(execpath, &size) == 0) {
+				char *real = realpath(execpath, NULL);
+				char *target = real ? real : execpath;
+				for (cur = target + strlen(target) - 1; cur != target; cur--) {
+					if (is_path_sep(*cur)) {
+						exe_dir = malloc(cur - target + 1);
+						memcpy(exe_dir, target, cur - target);
+						exe_dir[cur - target] = 0;
+						break;
+					}
+				}
+				free(real);
 			}
+			free(execpath);
 		}
-		if (cur == linktext) {
-			free(linktext);
-fallback:
 #endif
-			if (!exe_str) {
-				fputs("/proc/self/exe is not available and set_exe_str was not called!", stderr);
+#ifdef HAS_PROC
+		if (!exe_dir) {
+			char * linktext = readlink_alloc("/proc/self/exe");
+			if (linktext) {
+				int linksize = strlen(linktext);
+				for(cur = linktext + linksize - 1; cur != linktext; cur--)
+				{
+					if (is_path_sep(*cur)) {
+						*cur = 0;
+						exe_dir = linktext;
+						break;
+					}
+				}
+				if (!exe_dir) {
+					free(linktext);
+				}
 			}
+		}
+#endif
+		if (!exe_dir && exe_str) {
 			int pathsize = strlen(exe_str);
 			for(cur = exe_str + pathsize - 1; cur != exe_str; cur--)
 			{
 				if (is_path_sep(*cur)) {
-					exe_dir = malloc(cur-exe_str+1);
-					memcpy(exe_dir, exe_str, cur-exe_str);
-					exe_dir[cur-exe_str] = 0;
+					char *real = realpath(exe_str, NULL);
+					if (real) {
+						char *real_cur;
+						for (real_cur = real + strlen(real) - 1; real_cur != real; real_cur--) {
+							if (is_path_sep(*real_cur)) {
+								exe_dir = malloc(real_cur - real + 1);
+								memcpy(exe_dir, real, real_cur - real);
+								exe_dir[real_cur - real] = 0;
+								break;
+							}
+						}
+						free(real);
+					}
+					if (!exe_dir) {
+						exe_dir = malloc(cur-exe_str+1);
+						memcpy(exe_dir, exe_str, cur-exe_str);
+						exe_dir[cur-exe_str] = 0;
+					}
 					break;
 				}
 			}
-#ifdef HAS_PROC
-		} else {
-			exe_dir = linktext;
+			if (!exe_dir) {
+				char *pathenv = getenv("PATH");
+				if (pathenv) {
+					char *pathcopy = strdup(pathenv);
+					char *saveptr = NULL;
+					for (char *p = strtok_r(pathcopy, ":", &saveptr); p; p = strtok_r(NULL, ":", &saveptr)) {
+						char const *pieces[] = {p, PATH_SEP, exe_str};
+						char *candidate = alloc_concat_m(3, pieces);
+						if (access(candidate, X_OK) == 0) {
+							char *real = realpath(candidate, NULL);
+							char *target = real ? real : candidate;
+							for (cur = target + strlen(target) - 1; cur != target; cur--) {
+								if (is_path_sep(*cur)) {
+									exe_dir = malloc(cur - target + 1);
+									memcpy(exe_dir, target, cur - target);
+									exe_dir[cur - target] = 0;
+									break;
+								}
+							}
+							free(real);
+							free(candidate);
+							break;
+						}
+						free(candidate);
+					}
+					free(pathcopy);
+				}
+			}
 		}
-#endif
+		if (!exe_dir) {
+			exe_dir = strdup(".");
+		}
 	}
 	return exe_dir;
 }
@@ -596,14 +663,26 @@ char *bundled_file_path(char *name)
 char *read_bundled_file(char *name, uint32_t *sizeret)
 {
 	char *path = bundled_file_path(name);
-	if (!path) {
-		if (sizeret) {
-			*sizeret = -1;
-		}
-		return NULL;
-	}
-	FILE *f = fopen(path, "rb");
+	FILE *f = path ? fopen(path, "rb") : NULL;
 	free(path);
+	if (!f) {
+		char const *confdir = get_config_dir();
+		if (confdir) {
+			path = path_append(confdir, name);
+			f = fopen(path, "rb");
+			free(path);
+		}
+	}
+	if (!f) {
+		char const *userdir = get_userdata_dir();
+		if (userdir) {
+			char *blastem_user = path_append(userdir, "blastem");
+			path = path_append(blastem_user, name);
+			free(blastem_user);
+			f = fopen(path, "rb");
+			free(path);
+		}
+	}
 	if (!f) {
 		if (sizeret) {
 			*sizeret = -1;
@@ -634,8 +713,26 @@ char *read_bundled_file(char *name, uint32_t *sizeret)
 dir_entry *get_bundled_dir_list(char *name, size_t *num_out)
 {
 	char *path = bundled_file_path(name);
-	dir_entry *ret = get_dir_list(path, num_out);
+	dir_entry *ret = path ? get_dir_list(path, num_out) : NULL;
 	free(path);
+	if (!ret) {
+		char const *confdir = get_config_dir();
+		if (confdir) {
+			path = path_append(confdir, name);
+			ret = get_dir_list(path, num_out);
+			free(path);
+		}
+	}
+	if (!ret) {
+		char const *userdir = get_userdata_dir();
+		if (userdir) {
+			char *blastem_user = path_append(userdir, "blastem");
+			path = path_append(blastem_user, name);
+			free(blastem_user);
+			ret = get_dir_list(path, num_out);
+			free(path);
+		}
+	}
 	return ret;
 }
 #endif
